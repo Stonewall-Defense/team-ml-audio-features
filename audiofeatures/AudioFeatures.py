@@ -12,6 +12,11 @@ import torch
 import torchaudio
 from torchaudio import functional as F
 
+###############################################################################
+# Local Imports
+###############################################################################
+from .common import power_of_two
+
 
 ###############################################################################
 # Enumerated Types
@@ -25,13 +30,6 @@ class SpecType(Enum):
     MEL = 1
     LOG_MEL = 2
     MFCC = 3
-
-
-###############################################################################
-# Helpers
-###############################################################################
-def _power_of_two(n: int):
-    return (n & (n - 1) == 0) and n != 0
 
 
 ###############################################################################
@@ -81,12 +79,12 @@ class AudioFeatureExtractor(torch.nn.Module):
         # Begin other configs
         self.sample_rate = sample_rate
 
-        if n_fft is not None and not _power_of_two(n_fft):
+        if n_fft is not None and not power_of_two(n_fft):
             raise ValueError('n_fft must be a power of 2')
         self.n_fft = n_fft or 1024
 
         if hop_length is not None and hop_length > (self.n_fft // 2):
-            warnings.warn(f'hop_length should be ste to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})')
+            warnings.warn(f'hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})')
         self.hop_length = hop_length or self.n_fft // 4
 
         if n_mels is not None and n_mels > (self.n_fft // 8):
