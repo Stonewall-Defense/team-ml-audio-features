@@ -154,7 +154,7 @@ def _create_scaler(scaling_type: ScalingType):
         return torchaudio.transforms.AmplitudeToDB(stype=scaling_type.value, top_db=80.0)
 
 
-def _generate_filters(mel_type: MelType, n_fft: int, n_filters: int, sample_rate: int):
+def _generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Optional[MelType]):
     n_freqs = n_fft // 2 + 1
     f_min = 0.0
     f_max = float(sample_rate // 2)
@@ -174,6 +174,19 @@ def _generate_filters(mel_type: MelType, n_fft: int, n_filters: int, sample_rate
             n_filters,
             sample_rate,
         )
+
+
+def _scale_spec(spec: torch.Tensor) -> torch.Tensor:
+    min_in_val = torch.min(spec)
+    max_in_val = torch.max(spec)
+    in_span = max_in_val - min_in_val
+
+    min_out_val = torch.zeros(1)
+    max_out_val = torch.ones(1)
+    out_span = max_out_val - min_out_val
+
+    scale_factor = out_span / in_span
+    return (spec - min_in_val) * scale_factor
 
 
 def _determine_spec_type(calc_mels, calc_logs, calc_cepstrum):
@@ -204,6 +217,7 @@ class FeatureExtractor(torch.nn.Module):
                  n_fft: Optional[int] = None,
                  hop_length: Optional[int] = None,
                  normalized: Optional[bool] = None,
+                 scale_spec: Optional[bool] = None,
 
                  # Shared
                  n_filters: Optional[int] = None,
@@ -235,6 +249,7 @@ class FeatureExtractor(torch.nn.Module):
         self.hop_length = hop_length or self.n_fft // 4
 
         self.normalized = normalized or False
+        self.scale_spec = scale_spec if scale_spec is not None else True
 
         # Shared configs (mels, MFCC, LFCC)
         if n_filters is not None and n_filters > (self.n_fft // 8):
@@ -260,19 +275,19 @@ class FeatureExtractor(torch.nn.Module):
         ###################
 
         # Basic spectrogram
-        self.stft = torchaudio.transforms.Spectrogram(
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            normalized=self.normalized,
-        )
-        self.fb = _generate_filters(self.mel_type, self.n_fft, self.n_filters, self.sample_rate)
+        window = torch.hann_window(self.n_fft)
+        self.register_buffer("window", window)
+
+        fb = _generate_filters(self.n_fft, self.n_filters, self.sample_rate, self.mel_type)
+        self.register_buffer("fb", fb)
 
         # DB scaling, if necessary
         self.amplitude_to_DB = _create_scaler(scaling_type) if calc_logs else None
 
         # Cepstrum, if necessary
         if calc_cepstrum:
-            self.dct_mat = F.create_dct(self.cepstral_coefficients, self.n_filters, "ortho")
+            dct_mat = F.create_dct(self.cepstral_coefficients, self.n_filters, "ortho")
+            self.register_buffer("dct_mat", dct_mat)
         else:
             self.dct_mat = None
 
@@ -282,7 +297,7 @@ class FeatureExtractor(torch.nn.Module):
         return self.spec_type
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
-        spec = self.stft(wav)
+        spec = self._stft(wav)
 
         if self.fb is not None:
             spec = torch.matmul(spec.transpose(-1, -2), self.fb).transpose(-1, -2)
@@ -293,7 +308,33 @@ class FeatureExtractor(torch.nn.Module):
         if self.dct_mat is not None:
             spec = torch.matmul(spec.transpose(-1, -2), self.dct_mat).transpose(-1, -2).squeeze()
 
+        if self.scale_spec:
+            spec = _scale_spec(spec)
+
         return spec
+
+    def _stft(self, wav: torch.Tensor) -> torch.Tensor:
+        # Pack batch
+        shape = wav.size()
+        wav = wav.reshape(-1, shape[-1])
+
+        # Default values are consistent with librosa.core.spectrum._spectrogram
+        spec_f = torch.stft(
+            input=wav,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.n_fft,
+            window=self.window,
+            center=True,
+            pad_mode="reflect",
+            normalized=False,
+            onesided=True,
+            return_complex=True,
+        )
+
+        # Unpack batch
+        spec_f = spec_f.reshape(shape[:-1] + spec_f.shape[-2:])
+        return spec_f.abs().pow(2.0)
 
 
 class FeatureSource(torch.nn.Module):
@@ -304,15 +345,15 @@ class FeatureSource(torch.nn.Module):
                  ):
         super(FeatureSource, self).__init__()
 
-        self.feature_channels = feature_channels
-        self.stack_spectra = stack_spectra
-
         if len(feature_channels) == 0:
             raise ValueError('Must include at least one spec type')
+
+        self.feature_channels = torch.nn.ModuleList(feature_channels)
+        self.stack_spectra = stack_spectra
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
         spectra = [chan(wav) for chan in self.feature_channels]
         if self.stack_spectra:
             return torch.stack(spectra, dim=0).unsqueeze(0)
         else:
-            return spectra
+            return torch.tensor(spectra)
