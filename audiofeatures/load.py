@@ -20,6 +20,28 @@ def _is_stereo(wave: torch.Tensor) -> bool:
 ###############################################################################
 # Functions
 ###############################################################################
+def set_audio_length(wave: torch.Tensor, sr: int, duration_secs: Optional[int]):
+    if duration_secs is None:
+        return wave
+    else:
+        # Truncate as needed
+        start_secs = 0
+        end_secs = duration_secs
+        st_idx, end_idx = int(start_secs * sr), int(end_secs * sr)
+        wave = wave[:, st_idx:end_idx]
+
+        # Zero Padding
+        num_samples = int(sr * duration_secs)
+        padding_size = max(num_samples - wave.size(1), 0)
+        if padding_size > 0:
+            wave = torch.cat([wave, torch.zeros(1, padding_size)], dim=1)
+
+        # Trim
+        wave = wave[:, :num_samples]
+
+        return wave
+
+
 def load_input(path: str,
                *,
                target_sr: Optional[int] = None,
@@ -50,20 +72,6 @@ def load_input(path: str,
     if _is_stereo(wave):
         wave = torch.mean(wave, dim=0, keepdim=True)
 
-    if duration_secs is not None:
-        # Truncate as needed
-        start_secs = 0
-        end_secs = duration_secs
-        st_idx, end_idx = int(start_secs * final_sr), int(end_secs * final_sr)
-        wave = wave[:, st_idx:end_idx]
-
-        # Zero Padding
-        num_samples = int(final_sr * duration_secs)
-        padding_size = max(num_samples - wave.size(1), 0)
-        if padding_size > 0:
-            wave = torch.cat([wave, torch.zeros(1, padding_size)], dim=1)
-
-        # Trim
-        wave = wave[:, :num_samples]
+    wave = set_audio_length(wave, final_sr, duration_secs)
 
     return wave

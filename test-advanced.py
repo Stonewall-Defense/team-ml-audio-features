@@ -50,15 +50,118 @@ SAMPLE_RATE = 22050
 #     FeatureExtractor(SAMPLE_RATE, is_mel=True, is_logarithmic=True, scaling_type=ScalingType.LOG),
 # ]
 
+# feature_channels = [
+#     FeatureExtractor(SAMPLE_RATE, n_fft=512, n_filters=128, hop_length=128, is_mel=True, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=1024, n_filters=128, hop_length=128, is_mel=True, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=2048, n_filters=128, hop_length=128, is_mel=True, is_logarithmic=True),
+
+#     FeatureExtractor(SAMPLE_RATE, n_fft=512, is_mel=True, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=1024, is_mel=True, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=2048, is_mel=True, is_logarithmic=True),
+# ]
+
+# feature_channels = [
+#     FeatureExtractor(SAMPLE_RATE, n_fft=512, n_filters=128, hop_length=128, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=1024, n_filters=128, hop_length=128, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=2048, n_filters=128, hop_length=128, is_logarithmic=True),
+
+#     FeatureExtractor(SAMPLE_RATE, n_fft=512, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=1024, is_logarithmic=True),
+#     FeatureExtractor(SAMPLE_RATE, n_fft=2048, is_logarithmic=True),
+# ]
+
 feature_channels = [
-    FeatureExtractor(SAMPLE_RATE, n_fft=512, is_mel=True, is_logarithmic=True),
-    FeatureExtractor(SAMPLE_RATE, n_fft=1024, is_mel=True, is_logarithmic=True),
-    FeatureExtractor(SAMPLE_RATE, n_fft=2048, is_mel=True, is_logarithmic=True),
+    FeatureExtractor(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=False),
+    # FeatureExtractor(SAMPLE_RATE, is_mel=True, is_cepstrum=True),
 ]
 
 # feature_channels = [
-#     FeatureExtractor(SAMPLE_RATE, is_mel=False, is_cepstrum=True),
-#     FeatureExtractor(SAMPLE_RATE, is_mel=True, is_cepstrum=True),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      is_mel=True,
+#                      is_logarithmic=True,
+#                      is_cepstrum=False,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=40,
+#                      hop_length=256,
+#                      is_mel=True,
+#                      is_logarithmic=True,
+#                      is_cepstrum=False,
+#                      ),
+# ]
+
+# feature_channels = [
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=40,
+#                      hop_length=256,
+#                      cepstral_coefficients=11,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=11,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=40,
+#                      hop_length=256,
+#                      cepstral_coefficients=20,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=20,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+# ]
+
+# feature_channels = [
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=11,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=20,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=30,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
+#     FeatureExtractor(SAMPLE_RATE,
+#                      n_fft=1024,
+#                      n_filters=128,
+#                      hop_length=256,
+#                      cepstral_coefficients=40,
+#                      is_mel=True,
+#                      is_cepstrum=True,
+#                      ),
 # ]
 
 for chan in feature_channels:
@@ -101,10 +204,12 @@ def plot(spectra: Tensor, sources: list[FeatureExtractor]) -> None:
 # Main
 ###############################################################################
 # wav = load_input("./dev/0_ryan_2.wav", target_sr=SAMPLE_RATE)
-wav = load_input("./dev/gunshot.wav", target_sr=SAMPLE_RATE)
-# wav = load_input("./dev/12-18-4.wav", target_sr=SAMPLE_RATE, duration_secs=3)
+# wav = load_input("./dev/gunshot.wav", target_sr=SAMPLE_RATE)
+wav = load_input("./dev/12-18-4.wav", target_sr=SAMPLE_RATE, duration_secs=1)
 
 source = FeatureSource(feature_channels, stack_spectra=False)
 
 spectra = source.forward(wav)
+for s in spectra:
+    print(s.shape)
 plot(spectra, feature_channels)
