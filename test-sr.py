@@ -12,12 +12,7 @@ from torch import Tensor
 ###############################################################################
 # Certus Imports
 ###############################################################################
-from audiofeatures import load_input
-
-###############################################################################
-# Local Imports
-###############################################################################
-from audiofeatures import FeatureSource, FeatureExtractor
+from audiofeatures import load_input, FeatureSource, FeatureChannel
 
 
 ###############################################################################
@@ -41,7 +36,7 @@ def calc_plot_shape(num_spectra: int) -> tuple[int, int]:
         return num_spectra, 1
 
 
-def plot(spectra: Tensor, sources: list[FeatureExtractor]) -> None:
+def plot(spectra: list[Tensor], sources: list[FeatureChannel]) -> None:
     num_spectra = len(spectra)
     nrows, ncols = calc_plot_shape(num_spectra)
     is_tiled = ncols > 1
@@ -73,9 +68,9 @@ for sample_rate in SAMPLE_RATES:
     #     FeatureExtractor(sample_rate, n_fft=512, is_logarithmic=True, is_mel=True),
     # ]
     feature_channels = [
-        FeatureExtractor(sample_rate, n_fft=2048, is_logarithmic=True, is_mel=False),
-        FeatureExtractor(sample_rate, n_fft=1024, is_logarithmic=True, is_mel=False),
-        FeatureExtractor(sample_rate, n_fft=512, is_logarithmic=True, is_mel=False),
+        FeatureChannel(sample_rate, n_fft=2048, is_logarithmic=True, is_mel=False),
+        FeatureChannel(sample_rate, n_fft=1024, is_logarithmic=True, is_mel=False),
+        FeatureChannel(sample_rate, n_fft=512, is_logarithmic=True, is_mel=False),
     ]
     source = FeatureSource(feature_channels, stack_spectra=False)
 

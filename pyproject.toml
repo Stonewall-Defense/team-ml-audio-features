@@ -1,6 +1,6 @@
 [project]
 name = "audiofeatures"
-version = "v0.1.0"
+version = "v0.2.0"
 
 [build-system]
 requires = ["setuptools"]

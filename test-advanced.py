@@ -17,7 +17,7 @@ from audiofeatures import load_input
 ###############################################################################
 # Local Imports
 ###############################################################################
-from audiofeatures import FeatureSource, FeatureExtractor, MelType, ScalingType
+from audiofeatures import FeatureSource, FeatureChannel, MelType, ScalingType
 
 
 ###############################################################################
@@ -71,7 +71,7 @@ SAMPLE_RATE = 22050
 # ]
 
 feature_channels = [
-    FeatureExtractor(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=False),
+    FeatureChannel(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=False),
     # FeatureExtractor(SAMPLE_RATE, is_mel=True, is_cepstrum=True),
 ]
 
@@ -181,7 +181,7 @@ def calc_plot_shape(num_spectra: int) -> tuple[int, int]:
         return num_spectra, 1
 
 
-def plot(spectra: Tensor, sources: list[FeatureExtractor]) -> None:
+def plot(spectra: Tensor, sources: list[FeatureChannel]) -> None:
     num_spectra = len(spectra)
     nrows, ncols = calc_plot_shape(num_spectra)
     is_tiled = ncols > 1

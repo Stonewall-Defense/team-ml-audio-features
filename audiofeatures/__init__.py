@@ -1,3 +1,2 @@
-from .AdvancedFeatureSource import AdvSpecType, MelType, ScalingType, FeatureSource, FeatureExtractor # noqa
-from .AudioFeatures import AudioFeatureExtractor, SpecType # noqa
-from .load import load_input, set_audio_length # noqa
+from .AudioFeatures import SpecType, MelType, ScalingType, FeatureSource, FeatureChannel # noqa
+from .wav import load_input, set_audio_length # noqa

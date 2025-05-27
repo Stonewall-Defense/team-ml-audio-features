@@ -13,8 +13,8 @@ import torchaudio
 ###############################################################################
 # Helpers
 ###############################################################################
-def _is_stereo(wave: torch.Tensor) -> bool:
-    return wave.size(0) == 2
+def _is_multichannel(wave: torch.Tensor) -> bool:
+    return wave.size(0) > 1
 
 
 ###############################################################################
@@ -69,7 +69,7 @@ def load_input(path: str,
         wave = torchaudio.functional.resample(wave, orig_freq=sr, new_freq=target_sr)
 
     # Stereo -> Mono
-    if _is_stereo(wave):
+    if _is_multichannel(wave):
         wave = torch.mean(wave, dim=0, keepdim=True)
 
     wave = set_audio_length(wave, final_sr, duration_secs)
