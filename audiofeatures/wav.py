@@ -75,3 +75,23 @@ def load_input(path: str,
     wave = set_audio_length(wave, final_sr, duration_secs)
 
     return wave
+
+
+###############################################################################
+# Classes
+###############################################################################
+class WavReader:
+    def __init__(self, target_sr: int, duration_secs: Optional[int] = None):
+        self.target_sr = target_sr
+        self.duration_secs = duration_secs
+
+    def load(self, path: str) -> torch.Tensor:
+        return load_input(path, target_sr=self.target_sr, duration_secs=self.duration_secs)
+
+    def __call__(self, path: str) -> torch.Tensor:
+        return self.load(path)
+
+    def clip(self, wav: torch.Tensor, start_sec: int, end_sec: int) -> torch.Tensor:
+        start_frame = start_sec * self.target_sr
+        end_frame = end_sec * self.target_sr
+        return wav[:, start_frame:end_frame]
