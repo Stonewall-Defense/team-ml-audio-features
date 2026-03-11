@@ -10,7 +10,6 @@ import warnings
 # 3PP Imports
 ###############################################################################
 import torch
-import torchaudio
 from torchaudio import functional as F
 
 ###############################################################################
@@ -52,6 +51,29 @@ class ScalingType(Enum):
 ###############################################################################
 # Helpers
 ###############################################################################
+class AmpScaler(torch.nn.Module):
+    def __init__(self, stype: str = "power", top_db: Optional[float] = None) -> None:
+        super(AmpScaler, self).__init__()
+        self.stype = stype
+        if top_db is not None and top_db < 0:
+            raise ValueError("top_db must be positive value")
+        self.top_db = top_db
+        self.multiplier = 10.0 if stype == "power" else 20.0
+        self.amin = 1e-10
+        self.ref_value = 1.0
+        self.db_multiplier = math.log10(max(self.amin, self.ref_value))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
+        x_db -= self.multiplier * self.db_multiplier
+
+        if self.top_db:
+            max_ref = (x_db.max() - self.top_db)
+            x_db = torch.max(x_db, max_ref)
+
+        return x_db
+
+
 def _log_scale(waveform: torch.Tensor) -> torch.Tensor:
     log_offset = 1e-6
     return torch.log(waveform + log_offset)
@@ -151,7 +173,7 @@ def _create_scaler(scaling_type: ScalingType):
     if scaling_type == ScalingType.LOG:
         return _log_scale
     else:
-        return torchaudio.transforms.AmplitudeToDB(stype=scaling_type.value, top_db=80.0)
+        return AmpScaler(stype=scaling_type.value, top_db=80.0)
 
 
 def _generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Optional[MelType]):
