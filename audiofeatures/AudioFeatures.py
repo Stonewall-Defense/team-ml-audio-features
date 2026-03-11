@@ -10,12 +10,6 @@ import warnings
 # 3PP Imports
 ###############################################################################
 import torch
-from torchaudio import functional as F
-
-###############################################################################
-# Local Imports
-###############################################################################
-from .common import power_of_two
 
 
 ###############################################################################
@@ -49,7 +43,7 @@ class ScalingType(Enum):
 
 
 ###############################################################################
-# Helpers
+# Helper Classes
 ###############################################################################
 class AmpScaler(torch.nn.Module):
     def __init__(self, stype: str = "power", top_db: Optional[float] = None) -> None:
@@ -72,6 +66,59 @@ class AmpScaler(torch.nn.Module):
             x_db = torch.max(x_db, max_ref)
 
         return x_db
+
+
+class ManualSTFT(torch.nn.Module):
+    """
+        Exportable to Executorch. Created by Claude with supervision. Results are very slightly different than Torch.
+    """
+    def __init__(self, n_fft: int, hop_length: int, win_length: int, window: torch.Tensor):
+        super().__init__()
+
+        w = window if window is not None else torch.ones(n_fft)
+        if win_length < n_fft:
+            pad_left = (n_fft - win_length) // 2
+            pad_right = n_fft - win_length - pad_left
+            w = torch.nn.functional.pad(w, (pad_left, pad_right))
+
+        # Only compute onesided bins: n_fft//2+1
+        k = torch.arange(n_fft // 2 + 1).unsqueeze(1)  # (freq, 1)
+        n = torch.arange(n_fft).unsqueeze(0)            # (1, n_fft)
+        angles = -2 * torch.pi * k * n / n_fft          # (freq, n_fft)
+
+        self.hop_length = hop_length
+        self.n_fft = n_fft
+        self.pad = n_fft // 2
+
+        # Shape: (n_fft//2+1, n_fft)
+        self.register_buffer('dft_real', torch.cos(angles) * w)
+        self.register_buffer('dft_imag', torch.sin(angles) * w)
+
+    def forward(self, x: torch.Tensor):
+        if x.dim() == 1:
+            x = x.unsqueeze(0).unsqueeze(0)  # (1, 1, T)
+        elif x.dim() == 2:
+            x = x.unsqueeze(1)               # (B, 1, T)
+
+        x = torch.nn.functional.pad(x, (self.pad, self.pad), mode='reflect')
+        x = x.squeeze(1)                                          # (B, T_padded)
+
+        frames = x.unfold(-1, self.n_fft, self.hop_length)        # (B, frames, n_fft)
+
+        real = torch.matmul(frames, self.dft_real.T)              # (B, frames, freq)
+        imag = torch.matmul(frames, self.dft_imag.T)
+
+        power = real ** 2 + imag ** 2                             # (B, frames, freq)
+
+        # Match torch.stft output layout: (B, freq, frames)
+        return power.permute(0, 2, 1)
+
+
+###############################################################################
+# Helper Functions
+###############################################################################
+def _power_of_two(n: int):
+    return (n & (n - 1) == 0) and n != 0
 
 
 def _log_scale(waveform: torch.Tensor) -> torch.Tensor:
@@ -169,11 +216,23 @@ def _melscale_fbanks(
     return fb
 
 
-def _create_scaler(scaling_type: ScalingType):
-    if scaling_type == ScalingType.LOG:
-        return _log_scale
-    else:
-        return AmpScaler(stype=scaling_type.value, top_db=80.0)
+def _linear_fbanks(
+    n_freqs: int,
+    f_min: float,
+    f_max: float,
+    n_filter: int,
+    sample_rate: int,
+) -> torch.Tensor:
+    # freq bins
+    all_freqs = torch.linspace(0, sample_rate // 2, n_freqs)
+
+    # filter mid-points
+    f_pts = torch.linspace(f_min, f_max, n_filter + 2)
+
+    # create filterbank
+    fb = _create_triangular_filterbank(all_freqs, f_pts)
+
+    return fb
 
 
 def _generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Optional[MelType]):
@@ -190,13 +249,37 @@ def _generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Op
         f_min = 0.0
         f_max = float(sample_rate // 2)
 
-        return F.linear_fbanks(
+        return _linear_fbanks(
             n_freqs,
             f_min,
             f_max,
             n_filters,
             sample_rate,
         )
+
+
+def _create_scaler(scaling_type: ScalingType):
+    if scaling_type == ScalingType.LOG:
+        return _log_scale
+    else:
+        return AmpScaler(stype=scaling_type.value, top_db=80.0)
+
+
+def _create_dct(n_mfcc: int, n_mels: int, norm: Optional[str]) -> torch.Tensor:
+    if norm is not None and norm != "ortho":
+        raise ValueError('norm must be either "ortho" or None')
+
+    # http://en.wikipedia.org/wiki/Discrete_cosine_transform#DCT-II
+    n = torch.arange(float(n_mels))
+    k = torch.arange(float(n_mfcc)).unsqueeze(1)
+    dct = torch.cos(math.pi / float(n_mels) * (n + 0.5) * k)  # size (n_mfcc, n_mels)
+
+    if norm is None:
+        dct *= 2.0
+    else:
+        dct[0] *= 1.0 / math.sqrt(2.0)
+        dct *= math.sqrt(2.0 / float(n_mels))
+    return dct.t()
 
 
 def _scale_spec(spec: torch.Tensor) -> torch.Tensor:
@@ -230,7 +313,7 @@ def _determine_spec_type(calc_mels, calc_logs, calc_cepstrum):
 
 
 ###############################################################################
-# Classes
+# Export Classes
 ###############################################################################
 class FeatureChannel(torch.nn.Module):
     def __init__(self,
@@ -263,7 +346,7 @@ class FeatureChannel(torch.nn.Module):
         self.sample_rate = sample_rate
 
         # Universal configs
-        if n_fft is not None and not power_of_two(n_fft):
+        if n_fft is not None and not _power_of_two(n_fft):
             raise ValueError('n_fft must be a power of 2')
         self.n_fft = n_fft or 1024
 
@@ -300,6 +383,7 @@ class FeatureChannel(torch.nn.Module):
         # Basic spectrogram
         window = torch.hann_window(self.n_fft)
         self.register_buffer("window", window)
+        self._stft = ManualSTFT(self.n_fft, self.hop_length, self.n_fft, self.window)
 
         fb = _generate_filters(self.n_fft, self.n_filters, self.sample_rate, self.mel_type)
         self.register_buffer("fb", fb)
@@ -309,7 +393,7 @@ class FeatureChannel(torch.nn.Module):
 
         # Cepstrum, if necessary
         if calc_cepstrum:
-            dct_mat = F.create_dct(self.cepstral_coefficients, self.n_filters, "ortho")
+            dct_mat = _create_dct(self.cepstral_coefficients, self.n_filters, "ortho")
             self.register_buffer("dct_mat", dct_mat)
         else:
             self.dct_mat = None
@@ -335,29 +419,6 @@ class FeatureChannel(torch.nn.Module):
             spec = _scale_spec(spec)
 
         return spec
-
-    def _stft(self, wav: torch.Tensor) -> torch.Tensor:
-        # Pack batch
-        shape = wav.size()
-        wav = wav.reshape(-1, shape[-1])
-
-        # Default values are consistent with librosa.core.spectrum._spectrogram
-        spec_f = torch.stft(
-            input=wav,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.n_fft,
-            window=self.window,
-            center=True,
-            pad_mode="reflect",
-            normalized=False,
-            onesided=True,
-            return_complex=True,
-        )
-
-        # Unpack batch
-        spec_f = spec_f.reshape(shape[:-1] + spec_f.shape[-2:])
-        return spec_f.abs().pow(2.0)
 
 
 class FeatureSource(torch.nn.Module):
