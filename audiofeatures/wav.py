@@ -27,16 +27,6 @@ def _get_sinc_resample_kernel(
     device: torch.device = torch.device("cpu"),
     dtype: Optional[torch.dtype] = None,
 ):
-    if not (int(orig_freq) == orig_freq and int(new_freq) == new_freq):
-        raise Exception(
-            "Frequencies must be of integer type to ensure quality resampling computation. "
-            "To work around this, manually convert both frequencies to integer values "
-            "that maintain their resampling rate ratio before passing them into the function. "
-            "Example: To downsample a 44100 hz waveform by a factor of 8, use "
-            "`orig_freq=8` and `new_freq=1` instead of `orig_freq=44100` and `new_freq=5512.5`. "
-            "For more information, please refer to https://github.com/pytorch/audio/issues/1487."
-        )
-
     orig_freq = int(orig_freq) // gcd
     new_freq = int(new_freq) // gcd
 
@@ -103,9 +93,6 @@ def _apply_sinc_resample_kernel(
     kernel: torch.Tensor,
     width: int,
 ):
-    if not waveform.is_floating_point():
-        raise TypeError(f"Expected floating point type for waveform tensor, but received {waveform.dtype}.")
-
     orig_freq = int(orig_freq) // gcd
     new_freq = int(new_freq) // gcd
 
@@ -132,35 +119,6 @@ def _resample(
     lowpass_filter_width: int = 6,
     rolloff: float = 0.99,
 ) -> torch.Tensor:
-    r"""Resamples the waveform at the new frequency using bandlimited interpolation. :cite:`RESAMPLE`.
-
-    .. devices:: CPU CUDA
-
-    .. properties:: Autograd TorchScript
-
-    Note:
-        ``transforms.Resample`` precomputes and reuses the resampling kernel, so using it will result in
-        more efficient computation if resampling multiple waveforms with the same resampling parameters.
-
-    Args:
-        waveform (Tensor): The input signal of dimension `(..., time)`
-        orig_freq (int): The original frequency of the signal
-        new_freq (int): The desired frequency
-        lowpass_filter_width (int, optional): Controls the sharpness of the filter, more == sharper
-            but less efficient. (Default: ``6``)
-        rolloff (float, optional): The roll-off frequency of the filter, as a fraction of the Nyquist.
-            Lower values reduce anti-aliasing, but also reduce some of the highest frequencies. (Default: ``0.99``)
-        resampling_method (str, optional): The resampling method to use.
-            Options: [``"sinc_interp_hann"``, ``"sinc_interp_kaiser"``] (Default: ``"sinc_interp_hann"``)
-        beta (float or None, optional): The shape parameter used for kaiser window.
-
-    Returns:
-        Tensor: The waveform at the new frequency of dimension `(..., time).`
-    """
-
-    if orig_freq <= 0.0 or new_freq <= 0.0:
-        raise ValueError("Original frequency and desired frequecy should be positive")
-
     if orig_freq == new_freq:
         return waveform
 
@@ -204,11 +162,11 @@ def set_audio_length(wave: torch.Tensor, sr: int, duration_secs: Optional[int]):
         return wave
 
 
-def load_input(path: str,
-               *,
-               target_sr: Optional[int] = None,
-               duration_secs: Optional[int] = None,
-               ) -> torch.Tensor:
+def load_wav(path: str,
+             *,
+             target_sr: Optional[int] = None,
+             duration_secs: Optional[int] = None,
+             ) -> torch.Tensor:
     '''
     Load a WAV file into memory for processing.
 
@@ -228,7 +186,7 @@ def load_input(path: str,
     # Resample
     final_sr = target_sr or audio.sample_rate
 
-    if target_sr is not None and target_sr != audio.sample_rate:
+    if target_sr is not None:
         wave = _resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
 
     # Stereo -> Mono
@@ -249,7 +207,7 @@ class WavReader:
         self.duration_secs = duration_secs
 
     def load(self, path: str) -> torch.Tensor:
-        return load_input(path, target_sr=self.target_sr, duration_secs=self.duration_secs)
+        return load_wav(path, target_sr=self.target_sr, duration_secs=self.duration_secs)
 
     def __call__(self, path: str) -> torch.Tensor:
         return self.load(path)

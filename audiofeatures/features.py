@@ -91,8 +91,8 @@ class ManualSTFT(torch.nn.Module):
         self.pad = n_fft // 2
 
         # Shape: (n_fft//2+1, n_fft)
-        self.register_buffer('dft_real', torch.cos(angles) * w)
-        self.register_buffer('dft_imag', torch.sin(angles) * w)
+        self.register_buffer("dft_real", torch.cos(angles) * w)
+        self.register_buffer("dft_imag", torch.sin(angles) * w)
 
     def forward(self, x: torch.Tensor):
         if x.dim() == 1:
@@ -100,7 +100,7 @@ class ManualSTFT(torch.nn.Module):
         elif x.dim() == 2:
             x = x.unsqueeze(1)               # (B, 1, T)
 
-        x = torch.nn.functional.pad(x, (self.pad, self.pad), mode='reflect')
+        x = torch.nn.functional.pad(x, (self.pad, self.pad), mode="reflect")
         x = x.squeeze(1)                                          # (B, T_padded)
 
         frames = x.unfold(-1, self.n_fft, self.hop_length)        # (B, frames, n_fft)
@@ -265,20 +265,14 @@ def _create_scaler(scaling_type: ScalingType):
         return AmpScaler(stype=scaling_type.value, top_db=80.0)
 
 
-def _create_dct(n_mfcc: int, n_mels: int, norm: Optional[str]) -> torch.Tensor:
-    if norm is not None and norm != "ortho":
-        raise ValueError('norm must be either "ortho" or None')
-
+def _create_dct(n_mfcc: int, n_mels: int) -> torch.Tensor:
     # http://en.wikipedia.org/wiki/Discrete_cosine_transform#DCT-II
     n = torch.arange(float(n_mels))
     k = torch.arange(float(n_mfcc)).unsqueeze(1)
     dct = torch.cos(math.pi / float(n_mels) * (n + 0.5) * k)  # size (n_mfcc, n_mels)
 
-    if norm is None:
-        dct *= 2.0
-    else:
-        dct[0] *= 1.0 / math.sqrt(2.0)
-        dct *= math.sqrt(2.0 / float(n_mels))
+    dct[0] *= 1.0 / math.sqrt(2.0)
+    dct *= math.sqrt(2.0 / float(n_mels))
     return dct.t()
 
 
@@ -295,7 +289,7 @@ def _scale_spec(spec: torch.Tensor) -> torch.Tensor:
     return (spec - min_in_val) * scale_factor
 
 
-def _determine_spec_type(calc_mels, calc_logs, calc_cepstrum):
+def _determine_spec_type(calc_mels: bool, calc_logs: bool, calc_cepstrum: bool):
     if calc_mels:
         if calc_cepstrum:
             return SpecType.MFCC
@@ -322,7 +316,6 @@ class FeatureChannel(torch.nn.Module):
                  # For all spectra
                  n_fft: Optional[int] = None,
                  hop_length: Optional[int] = None,
-                 normalized: Optional[bool] = None,
                  scale_spec: Optional[bool] = None,
 
                  # Shared
@@ -347,19 +340,18 @@ class FeatureChannel(torch.nn.Module):
 
         # Universal configs
         if n_fft is not None and not _power_of_two(n_fft):
-            raise ValueError('n_fft must be a power of 2')
+            raise ValueError("n_fft must be a power of 2")
         self.n_fft = n_fft or 1024
 
         if hop_length is not None and hop_length > (self.n_fft // 2):
-            warnings.warn(f'hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})')
+            warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})")
         self.hop_length = hop_length or self.n_fft // 4
 
-        self.normalized = normalized or False
         self.scale_spec = scale_spec if scale_spec is not None else True
 
         # Shared configs (mels, MFCC, LFCC)
         if n_filters is not None and n_filters > (self.n_fft // 8):
-            warnings.warn(f'n_filters should be set to no more than 1/8 the FFT window size, or {self.n_fft // 8} filters for n_fft = {self.n_fft} (currently {n_filters})')
+            warnings.warn(f"n_filters should be set to no more than 1/8 the FFT window size, or {self.n_fft // 8} filters for n_fft = {self.n_fft} (currently {n_filters})")
         self.n_filters = n_filters or self.n_fft // 8
 
         # Mel configs
@@ -370,7 +362,7 @@ class FeatureChannel(torch.nn.Module):
         calc_cepstrum = is_cepstrum or (cepstral_coefficients is not None)
 
         if cepstral_coefficients is not None and cepstral_coefficients > self.n_filters:
-            raise ValueError(f'cepstral_coefficients must be no greater than n_mels (currently {cepstral_coefficients}/{self.n_filters})')
+            raise ValueError(f"cepstral_coefficients must be no greater than n_mels (currently {cepstral_coefficients}/{self.n_filters})")
         self.cepstral_coefficients = cepstral_coefficients or self.n_filters
 
         # Log configs
@@ -393,7 +385,7 @@ class FeatureChannel(torch.nn.Module):
 
         # Cepstrum, if necessary
         if calc_cepstrum:
-            dct_mat = _create_dct(self.cepstral_coefficients, self.n_filters, "ortho")
+            dct_mat = _create_dct(self.cepstral_coefficients, self.n_filters)
             self.register_buffer("dct_mat", dct_mat)
         else:
             self.dct_mat = None
@@ -422,22 +414,14 @@ class FeatureChannel(torch.nn.Module):
 
 
 class FeatureSource(torch.nn.Module):
-    def __init__(self,
-                 feature_channels: list[FeatureChannel],
-                 *,
-                 stack_spectra: Optional[bool] = True,
-                 ):
+    def __init__(self, feature_channels: list[FeatureChannel]):
         super(FeatureSource, self).__init__()
 
         if len(feature_channels) == 0:
-            raise ValueError('Must include at least one spec type')
+            raise ValueError("Must include at least one spec type")
 
         self.feature_channels = torch.nn.ModuleList(feature_channels)
-        self.stack_spectra = stack_spectra
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
         spectra = [chan(wav) for chan in self.feature_channels]
-        if self.stack_spectra:
-            return torch.stack(spectra, dim=0).unsqueeze(0)
-        else:
-            return torch.tensor(spectra)
+        return torch.stack(spectra, dim=0)
