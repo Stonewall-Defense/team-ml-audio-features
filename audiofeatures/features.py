@@ -2,6 +2,7 @@
 # Global Imports
 ###############################################################################
 from enum import Enum
+import json
 import math
 from typing import Optional
 import warnings
@@ -117,6 +118,19 @@ class ManualSTFT(torch.nn.Module):
 ###############################################################################
 # Helper Functions
 ###############################################################################
+def _load_params(params: str | list | dict):
+    if not isinstance(params, str):
+        return params
+    else:
+        with open(params, "r") as infile:
+            return json.loads(infile.read())
+
+
+def _write_params(filename: str, params: list | dict):
+    with open(filename, "r") as outfile:
+        return outfile.write(json.dumps(params, indent=2))
+
+
 def _power_of_two(n: int):
     return (n & (n - 1) == 0) and n != 0
 
@@ -381,6 +395,7 @@ class FeatureChannel(torch.nn.Module):
         self.register_buffer("fb", fb)
 
         # DB scaling, if necessary
+        self.scaling_type = scaling_type
         self.amplitude_to_DB = _create_scaler(scaling_type) if calc_logs else None
 
         # Cepstrum, if necessary
@@ -412,6 +427,64 @@ class FeatureChannel(torch.nn.Module):
 
         return spec
 
+    @staticmethod
+    def from_json(params: str | dict):
+        loaded_params = _load_params(params)
+        if not isinstance(loaded_params, dict):
+            raise ValueError(f"Invalid {FeatureChannel.__name__} parameters")
+
+        mel_type_raw = loaded_params.get("mel_type", None)
+        scaling_type_raw = loaded_params.get("scaling_type", None)
+
+        return FeatureChannel(sample_rate=loaded_params["sample_rate"],
+                              # For all spectra
+                              n_fft=loaded_params.get("n_fft", None),
+                              hop_length=loaded_params.get("hop_length", None),
+                              scale_spec=loaded_params.get("scale_spec", None),
+
+                              # Shared
+                              n_filters=loaded_params.get("n_filters", None),
+
+                              # For all mel spectra
+                              is_mel=loaded_params.get("is_mel", None),
+                              mel_type=MelType(mel_type_raw) if mel_type_raw else None,
+
+                              # For all log spectra
+                              is_logarithmic=loaded_params.get("is_logarithmic", None),
+                              scaling_type=ScalingType(scaling_type_raw) if scaling_type_raw else ScalingType.POWER,
+
+                              # For all cepstra
+                              is_cepstrum=loaded_params.get("is_cepstrum", None),
+                              cepstral_coefficients=loaded_params.get("cepstral_coefficients", None),
+                              )
+
+    def get_params(self):
+        return {
+            "sample_rate": self.sample_rate,
+            "n_fft": self.n_fft,
+            "hop_length": self.hop_length,
+            "scale_spec": self.scale_spec,
+
+            # Shared
+            "n_filters": self.n_filters,
+
+            # For all mel spectra
+            "is_mel": self.mel_type is not None,
+            "mel_type": self.mel_type,
+
+            # For all log spectra
+            "is_logarithmic": self.amplitude_to_DB is not None,
+            "scaling_type": self.scaling_type,
+
+            # For all cepstra
+            "is_cepstrum": self.dct_mat is not None,
+            "cepstral_coefficients": self.cepstral_coefficients if self.dct_mat is not None else None,
+        }
+
+    def to_json(self, filename: str):
+        params = self.get_params()
+        _write_params(filename, params)
+
 
 class FeatureSource(torch.nn.Module):
     def __init__(self, feature_channels: list[FeatureChannel]):
@@ -420,8 +493,22 @@ class FeatureSource(torch.nn.Module):
         if len(feature_channels) == 0:
             raise ValueError("Must include at least one spec type")
 
+        self.fc = feature_channels
         self.feature_channels = torch.nn.ModuleList(feature_channels)
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
         spectra = [chan(wav) for chan in self.feature_channels]
-        return torch.stack(spectra, dim=0)
+        return torch.stack(spectra, dim=1)
+
+    @staticmethod
+    def from_json(params: str | list):
+        loaded_params = _load_params(params)
+        if not isinstance(loaded_params, list):
+            raise ValueError(f"Invalid {FeatureSource.__name__} parameters")
+
+        feature_channels = [FeatureChannel.from_json(p) for p in loaded_params]
+        return FeatureSource(feature_channels)
+
+    def to_json(self, filename: str):
+        params = [fc.get_params() for fc in self.feature_channels.children() if isinstance(fc, FeatureChannel)]
+        _write_params(filename, params)
