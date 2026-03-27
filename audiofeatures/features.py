@@ -201,6 +201,8 @@ def _create_triangular_filterbank(
 
 def _melscale_fbanks(
         mel_type: MelType,
+        f_min: float,
+        f_max: float,
         n_freqs: int,
         n_mels: int,
         sample_rate: int,
@@ -209,8 +211,6 @@ def _melscale_fbanks(
     all_freqs = torch.linspace(0, sample_rate // 2, n_freqs)
 
     # calculate mel freq bins
-    f_min = 0.0
-    f_max = float(sample_rate // 2)
     m_min = _hz_to_mel(f_min, mel_type=mel_type)
     m_max = _hz_to_mel(f_max, mel_type=mel_type)
 
@@ -251,17 +251,19 @@ def _linear_fbanks(
 
 def _generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Optional[MelType]):
     n_freqs = n_fft // 2 + 1
+    f_min = 20.0
+    f_max = float(sample_rate // 2)
 
     if mel_type:
         return _melscale_fbanks(
             mel_type,
+            f_min,
+            f_max,
             n_freqs,
             n_filters,
             sample_rate,
         )
     else:
-        f_min = 0.0
-        f_max = float(sample_rate // 2)
 
         return _linear_fbanks(
             n_freqs,
@@ -495,6 +497,9 @@ class FeatureSource(torch.nn.Module):
 
         self.fc = feature_channels
         self.feature_channels = torch.nn.ModuleList(feature_channels)
+
+    def num_channels(self):
+        return len(self.fc)
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
         spectra = [chan(wav) for chan in self.feature_channels]
