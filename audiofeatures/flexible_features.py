@@ -1,7 +1,7 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
-from typing import Optional
+from typing import Optional, Sequence
 import warnings
 
 ###############################################################################
@@ -14,6 +14,7 @@ import torch
 ###############################################################################
 from ._common import MelType, ScalingType, ExportableSTFT
 from ._common import power_of_two, create_dct, create_scaler, generate_filters, determine_spec_type, scale_spec, load_params, write_params
+from .preproc import AudioPreprocessor
 
 
 ###############################################################################
@@ -183,7 +184,10 @@ class FeatureChannel(torch.nn.Module):
 
 
 class FeatureSource(torch.nn.Module):
-    def __init__(self, feature_channels: list[FeatureChannel]):
+    def __init__(self,
+                 feature_channels: list[FeatureChannel],
+                 preprocessors: Sequence[AudioPreprocessor] = [],
+                 ):
         super(FeatureSource, self).__init__()
 
         if len(feature_channels) == 0:
@@ -191,11 +195,15 @@ class FeatureSource(torch.nn.Module):
 
         self.fc = feature_channels
         self.feature_channels = torch.nn.ModuleList(feature_channels)
+        self.preprocessors = torch.nn.ModuleList(preprocessors)
 
     def num_channels(self):
         return len(self.fc)
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
+        for preproc in self.preprocessors:
+            wav = preproc(wav)
+
         spectra = [chan(wav) for chan in self.feature_channels]
         return torch.stack(spectra, dim=1)
 

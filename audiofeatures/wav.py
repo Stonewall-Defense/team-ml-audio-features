@@ -1,7 +1,6 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
-import math
 from typing import Optional
 
 ###############################################################################
@@ -10,131 +9,17 @@ from typing import Optional
 import torch
 import torchcodec
 
+###############################################################################
+# Local Imports
+###############################################################################
+from ._common import resample
+
 
 ###############################################################################
 # Helpers
 ###############################################################################
 def _is_multichannel(wave: torch.Tensor) -> bool:
     return wave.size(0) > 1
-
-
-def _get_sinc_resample_kernel(
-    orig_freq: int,
-    new_freq: int,
-    gcd: int,
-    lowpass_filter_width: int = 6,
-    rolloff: float = 0.99,
-    device: torch.device = torch.device("cpu"),
-    dtype: Optional[torch.dtype] = None,
-):
-    orig_freq = int(orig_freq) // gcd
-    new_freq = int(new_freq) // gcd
-
-    if lowpass_filter_width <= 0:
-        raise ValueError("Low pass filter width should be positive.")
-    base_freq = min(orig_freq, new_freq)
-    # This will perform antialiasing filtering by removing the highest frequencies.
-    # At first I thought I only needed this when downsampling, but when upsampling
-    # you will get edge artifacts without this, as the edge is equivalent to zero padding,
-    # which will add high freq artifacts.
-    base_freq *= rolloff
-
-    # The key idea of the algorithm is that x(t) can be exactly reconstructed from x[i] (tensor)
-    # using the sinc interpolation formula:
-    #   x(t) = sum_i x[i] sinc(pi * orig_freq * (i / orig_freq - t))
-    # We can then sample the function x(t) with a different sample rate:
-    #    y[j] = x(j / new_freq)
-    # or,
-    #    y[j] = sum_i x[i] sinc(pi * orig_freq * (i / orig_freq - j / new_freq))
-
-    # We see here that y[j] is the convolution of x[i] with a specific filter, for which
-    # we take an FIR approximation, stopping when we see at least `lowpass_filter_width` zeros crossing.
-    # But y[j+1] is going to have a different set of weights and so on, until y[j + new_freq].
-    # Indeed:
-    # y[j + new_freq] = sum_i x[i] sinc(pi * orig_freq * ((i / orig_freq - (j + new_freq) / new_freq))
-    #                 = sum_i x[i] sinc(pi * orig_freq * ((i - orig_freq) / orig_freq - j / new_freq))
-    #                 = sum_i x[i + orig_freq] sinc(pi * orig_freq * (i / orig_freq - j / new_freq))
-    # so y[j+new_freq] uses the same filter as y[j], but on a shifted version of x by `orig_freq`.
-    # This will explain the F.conv1d after, with a stride of orig_freq.
-    width = math.ceil(lowpass_filter_width * orig_freq / base_freq)
-    # If orig_freq is still big after GCD reduction, most filters will be very unbalanced, i.e.,
-    # they will have a lot of almost zero values to the left or to the right...
-    # There is probably a way to evaluate those filters more efficiently, but this is kept for
-    # future work.
-    idx_dtype = dtype if dtype is not None else torch.float64
-
-    idx = torch.arange(-width, width + orig_freq, dtype=idx_dtype, device=device)[None, None] / orig_freq
-
-    t = torch.arange(0, -new_freq, -1, dtype=dtype, device=device)[:, None, None] / new_freq + idx
-    t *= base_freq
-    t = t.clamp_(-lowpass_filter_width, lowpass_filter_width)
-
-    # we do not use built in torch windows here as we need to evaluate the window
-    # at specific positions, not over a regular grid.
-    window = torch.cos(t * math.pi / lowpass_filter_width / 2) ** 2
-
-    t *= math.pi
-
-    scale = base_freq / orig_freq
-    kernels = torch.where(t == 0, torch.tensor(1.0).to(t), t.sin() / t)
-    kernels *= window * scale
-
-    if dtype is None:
-        kernels = kernels.to(dtype=torch.float32)
-
-    return kernels, width
-
-
-def _apply_sinc_resample_kernel(
-    waveform: torch.Tensor,
-    orig_freq: int,
-    new_freq: int,
-    gcd: int,
-    kernel: torch.Tensor,
-    width: int,
-):
-    orig_freq = int(orig_freq) // gcd
-    new_freq = int(new_freq) // gcd
-
-    # pack batch
-    shape = waveform.size()
-    waveform = waveform.view(-1, shape[-1])
-
-    num_wavs, length = waveform.shape
-    waveform = torch.nn.functional.pad(waveform, (width, width + orig_freq))
-    resampled = torch.nn.functional.conv1d(waveform[:, None], kernel, stride=orig_freq)
-    resampled = resampled.transpose(1, 2).reshape(num_wavs, -1)
-    target_length = torch.ceil(torch.as_tensor(new_freq * length / orig_freq)).long()
-    resampled = resampled[..., :target_length]
-
-    # unpack batch
-    resampled = resampled.view(shape[:-1] + resampled.shape[-1:])
-    return resampled
-
-
-def _resample(
-    waveform: torch.Tensor,
-    orig_freq: int,
-    new_freq: int,
-    lowpass_filter_width: int = 6,
-    rolloff: float = 0.99,
-) -> torch.Tensor:
-    if orig_freq == new_freq:
-        return waveform
-
-    gcd = math.gcd(int(orig_freq), int(new_freq))
-
-    kernel, width = _get_sinc_resample_kernel(
-        orig_freq,
-        new_freq,
-        gcd,
-        lowpass_filter_width,
-        rolloff,
-        waveform.device,
-        waveform.dtype,
-    )
-    resampled = _apply_sinc_resample_kernel(waveform, orig_freq, new_freq, gcd, kernel, width)
-    return resampled
 
 
 ###############################################################################
@@ -187,7 +72,7 @@ def load_wav(path: str,
     final_sr = target_sr or audio.sample_rate
 
     if target_sr is not None:
-        wave = _resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
+        wave = resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
 
     # Stereo -> Mono
     if _is_multichannel(wave):

@@ -20,7 +20,7 @@ N_MELS = N_FFT // 8
 ###############################################################################
 CHANNELS = [
     FeatureChannel(SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LEN, n_filters=N_MELS, is_logarithmic=True, is_mel=True),
-    # FeatureChannel(SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LEN, n_filters=N_MELS, is_logarithmic=True, is_mel=False)
+    FeatureChannel(SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LEN, n_filters=N_MELS, is_logarithmic=True, is_mel=False)
 ]
 FEATURE_SOURCE = FeatureSource(CHANNELS)
 
