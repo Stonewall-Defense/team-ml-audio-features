@@ -52,14 +52,21 @@ class ExportableSTFT(torch.nn.Module):
 
         Results are very slightly different than Torch but show no noticeable difference in model accuracy or training.
     """
-    def __init__(self, n_fft: int, hop_length: int, win_length: int, window: torch.Tensor):
+    def __init__(self,
+                 n_fft: int,
+                 hop_length: int,
+                 *,
+                 win_length: Optional[int] = None,
+                 window: Optional[torch.Tensor] = None
+                 ):
         super().__init__()
 
-        w = window if window is not None else torch.ones(n_fft)
-        if win_length < n_fft:
-            pad_left = (n_fft - win_length) // 2
-            pad_right = n_fft - win_length - pad_left
-            w = torch.nn.functional.pad(w, (pad_left, pad_right))
+        _w = window if window is not None else torch.hann_window(n_fft)
+        _window_len = win_length or n_fft
+        if _window_len < n_fft:
+            pad_left = (n_fft - _window_len) // 2
+            pad_right = n_fft - _window_len - pad_left
+            _w = torch.nn.functional.pad(_w, (pad_left, pad_right))
 
         # Only compute onesided bins: n_fft//2+1
         k = torch.arange(n_fft // 2 + 1).unsqueeze(1)  # (freq, 1)
@@ -71,8 +78,8 @@ class ExportableSTFT(torch.nn.Module):
         self.pad = n_fft // 2
 
         # Shape: (n_fft//2+1, n_fft)
-        self.register_buffer("dft_real", torch.cos(angles) * w)
-        self.register_buffer("dft_imag", torch.sin(angles) * w)
+        self.register_buffer("dft_real", torch.cos(angles) * _w)
+        self.register_buffer("dft_imag", torch.sin(angles) * _w)
 
     def forward(self, x: torch.Tensor):
         if x.dim() == 1:

@@ -84,9 +84,7 @@ class FeatureChannel(torch.nn.Module):
         ###################
 
         # Basic spectrogram
-        window = torch.hann_window(self.n_fft)
-        self.register_buffer("window", window)
-        self._stft = ExportableSTFT(self.n_fft, self.hop_length, self.n_fft, self.window)
+        self._stft = ExportableSTFT(self.n_fft, self.hop_length)
 
         fb = generate_filters(self.n_fft, self.n_filters, self.sample_rate, self.mel_type)
         self.register_buffer("fb", fb)

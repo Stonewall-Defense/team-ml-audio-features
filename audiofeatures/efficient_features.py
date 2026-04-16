@@ -104,9 +104,7 @@ class EfficientFeatureSource(torch.nn.Module):
         ###################
 
         # Basic spectrogram
-        window = torch.hann_window(self.n_fft)
-        self.register_buffer("window", window)
-        self._stft = ExportableSTFT(self.n_fft, self.hop_length, self.n_fft, self.window)
+        self._stft = ExportableSTFT(self.n_fft, self.hop_length)
 
         if self.has_lin_freq:
             self.register_buffer("lin_filt", generate_filters(self.n_fft, self.n_filters, self.sample_rate, None))
