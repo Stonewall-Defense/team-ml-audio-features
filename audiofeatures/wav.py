@@ -1,6 +1,7 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
+import os
 from typing import Optional
 
 ###############################################################################
@@ -81,6 +82,10 @@ def load_wav(path: str,
     wave = set_audio_length(wave, final_sr, duration_secs)
 
     return wave
+
+
+def list_audio_files(dir: str) -> list[str]:
+    return sorted([f for f in os.listdir(dir) if f.endswith(".wav")])
 
 
 ###############################################################################
