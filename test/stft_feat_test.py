@@ -2,6 +2,7 @@
 # 3PP Imports
 ###############################################################################
 import torch
+import warnings
 
 ###############################################################################
 # Testing Imports
@@ -18,6 +19,8 @@ from audiofeatures.wav import load_wav
 ###############################################################################
 # Config
 ###############################################################################
+warnings.filterwarnings("ignore", category=UserWarning)
+
 # Constants
 SAMPLE_RATE = 44_100
 N_RUNS = 100
@@ -42,6 +45,7 @@ stft_source = FullRangeStftFeatureSource(SAMPLE_RATE)
 class TestStft(unittest.TestCase):
     def test_results(self):
         new_features = stft_source.forward(wav)
-        ref_features = ref_source.forward(wav).squeeze(0)
-        is_close = torch.all(torch.cosine_similarity(new_features, ref_features) > 0.93)
+        ref_features = ref_source.forward(wav)
+        is_close = torch.all(torch.cosine_similarity(new_features.squeeze(0), ref_features.squeeze(0)) > 0.93)
         self.assertTrue(is_close)
+        self.assertEqual(new_features.shape, ref_features.shape)

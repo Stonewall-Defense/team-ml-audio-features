@@ -59,4 +59,4 @@ class FullRangeStftFeatureSource(BaseFeatureSource):
         if self.amplitude_to_DB is not None:
             spec = self.amplitude_to_DB(spec)
 
-        return scale_spec(spec)
+        return scale_spec(spec).unsqueeze(0)
