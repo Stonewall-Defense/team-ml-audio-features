@@ -56,7 +56,7 @@ f_source = FeatureSource(f_channels)
 ###############################################################################
 # Tests
 ###############################################################################
-class TestStft(unittest.TestCase):
+class TestBench(unittest.TestCase):
     def test_results(self):
         e_features = e_source.forward(wav)
         f_features = f_source.forward(wav)

@@ -1,15 +1,17 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
+from abc import ABC, abstractmethod
 from enum import Enum
 import json
 import math
-from typing import Optional
+from typing import Optional, Sequence
 import warnings
 
 ###############################################################################
 # 3PP Imports
 ###############################################################################
+import numpy as np
 import torch
 
 
@@ -99,6 +101,18 @@ class ExportableSTFT(torch.nn.Module):
 
         # Match torch.stft output layout: (B, freq, frames)
         return power.permute(0, 2, 1)
+
+
+class AudioPreprocessor(torch.nn.Module, ABC):
+    @abstractmethod
+    def __call__(self, wav: torch.Tensor | np.ndarray) -> torch.Tensor:
+        ...
+
+
+class BaseFeatureSource(torch.nn.Module, ABC):
+    def __init__(self, preprocessors: Sequence[AudioPreprocessor]):
+        super(BaseFeatureSource, self).__init__()
+        self.preprocessors = preprocessors
 
 
 ###############################################################################

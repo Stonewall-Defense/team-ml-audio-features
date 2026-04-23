@@ -1,7 +1,7 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
-from typing import Optional
+from typing import Optional, Sequence
 import warnings
 
 ###############################################################################
@@ -12,7 +12,7 @@ import torch
 ###############################################################################
 # Local Imports
 ###############################################################################
-from ._common import MelType, ScalingType, ExportableSTFT
+from ._common import MelType, ScalingType, ExportableSTFT, AudioPreprocessor, BaseFeatureSource
 from ._common import power_of_two, create_dct, create_scaler, generate_filters, scale_spec
 
 
@@ -47,10 +47,11 @@ class ChannelConfig:
 ###############################################################################
 # Classes
 ###############################################################################
-class EfficientFeatureSource(torch.nn.Module):
+class EfficientFeatureSource(BaseFeatureSource):
     def __init__(self,
                  sample_rate: int,
                  channels: list[ChannelConfig],
+                 preprocessors: Sequence[AudioPreprocessor] = [],
                  *,
                  # For all spectra
                  n_fft: Optional[int] = None,
@@ -62,7 +63,7 @@ class EfficientFeatureSource(torch.nn.Module):
                  # For all cepstra
                  cepstral_coefficients: Optional[int] = None,
                  ):
-        super(EfficientFeatureSource, self).__init__()
+        super(EfficientFeatureSource, self).__init__(preprocessors)
 
         self.channels = channels
 
@@ -126,6 +127,9 @@ class EfficientFeatureSource(torch.nn.Module):
             self.dct = None
 
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
+        for preproc in self.preprocessors:
+            wav = preproc(wav)
+
         spec = self._stft(wav)
 
         if self.lin_filt is not None:

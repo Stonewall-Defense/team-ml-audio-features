@@ -12,9 +12,8 @@ import torch
 ###############################################################################
 # Local Imports
 ###############################################################################
-from ._common import MelType, ScalingType, ExportableSTFT
+from ._common import MelType, ScalingType, ExportableSTFT, AudioPreprocessor, BaseFeatureSource
 from ._common import power_of_two, create_dct, create_scaler, generate_filters, determine_spec_type, scale_spec, load_params, write_params
-from .preproc import AudioPreprocessor
 
 
 ###############################################################################
@@ -181,12 +180,12 @@ class FeatureChannel(torch.nn.Module):
         write_params(filename, params)
 
 
-class FeatureSource(torch.nn.Module):
+class FeatureSource(BaseFeatureSource):
     def __init__(self,
                  feature_channels: list[FeatureChannel],
                  preprocessors: Sequence[AudioPreprocessor] = [],
                  ):
-        super(FeatureSource, self).__init__()
+        super(FeatureSource, self).__init__(preprocessors)
 
         if len(feature_channels) == 0:
             raise ValueError("Must include at least one spec type")

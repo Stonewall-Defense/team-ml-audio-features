@@ -1,23 +1,14 @@
 ###############################################################################
-# Global Imports
-###############################################################################
-from abc import ABC, abstractmethod
-
-###############################################################################
 # 3PP Imports
 ###############################################################################
 import numpy as np
 from scipy.signal import butter, sosfilt, sosfilt_zi
 import torch
 
-
 ###############################################################################
-# Interfaces
+# Local Imports
 ###############################################################################
-class AudioPreprocessor(torch.nn.Module, ABC):
-    @abstractmethod
-    def __call__(self, wav: torch.Tensor | np.ndarray) -> torch.Tensor:
-        ...
+from ._common import AudioPreprocessor
 
 
 ###############################################################################
