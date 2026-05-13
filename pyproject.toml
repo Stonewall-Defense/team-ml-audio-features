@@ -1,6 +1,12 @@
 [project]
-name = "audiofeatures"
+name = "AudioMlSpecTools"
 version = "v0.5.0"
+
+dependencies = [
+    "torch == 2.10.0",
+    "torchcodec == 0.10.0",
+]
+
 authors = [
   { name="Ryan Quinn", email="ryan.quinn@certusinnovations.com" },
 ]
@@ -26,4 +32,4 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["audiofeatures*"]
+include = ["AudioMlSpecTools*"]

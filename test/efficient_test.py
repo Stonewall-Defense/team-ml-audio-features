@@ -16,9 +16,9 @@ import unittest
 ###############################################################################
 # Local Imports
 ###############################################################################
-from audiofeatures.efficient_features import ChannelConfig, EfficientFeatureSource
-from audiofeatures.flexible_features import FeatureChannel, FeatureSource
-from audiofeatures.wav import load_wav
+from AudioMlSpecTools.efficient_features import ChannelConfig, EfficientFeatureSource
+from AudioMlSpecTools.flexible_features import FeatureChannel, FeatureSource
+from AudioMlSpecTools.wav import load_wav
 
 
 ###############################################################################

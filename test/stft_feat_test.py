@@ -12,9 +12,9 @@ import unittest
 ###############################################################################
 # Local Imports
 ###############################################################################
-from audiofeatures.flexible_features import FeatureChannel, FeatureSource
-from audiofeatures.stft_features import FullRangeStftFeatureSource
-from audiofeatures.wav import load_wav
+from AudioMlSpecTools.flexible_features import FeatureChannel, FeatureSource
+from AudioMlSpecTools.stft_features import FullRangeStftFeatureSource
+from AudioMlSpecTools.wav import load_wav
 
 ###############################################################################
 # Config

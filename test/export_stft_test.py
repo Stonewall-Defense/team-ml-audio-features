@@ -4,8 +4,8 @@
 import torch
 import unittest
 
-from audiofeatures.flexible_features import ExportableSTFT
-from audiofeatures.wav import load_wav
+from AudioMlSpecTools.flexible_features import ExportableSTFT
+from AudioMlSpecTools.wav import load_wav
 
 
 ###############################################################################

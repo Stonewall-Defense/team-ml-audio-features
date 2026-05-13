@@ -1,7 +1,7 @@
 ###############################################################################
 # Local Imports
 ###############################################################################
-from audiofeatures import load_wav, FeatureChannel, FeatureSource, FullRangeStftFeatureSource, HighPassFilter
+from AudioMlSpecTools import load_wav, FeatureChannel, FeatureSource, FullRangeStftFeatureSource, HighPassFilter
 
 
 ###############################################################################
@@ -30,7 +30,7 @@ DUAL_CHANNELFEATURE_SOURCE = FeatureSource(CHANNELS, preprocessors=PREPROCESSORS
 
 FULL_RANGE_FEATURE_SOURCE = FullRangeStftFeatureSource(SAMPLE_RATE, preprocessors=PREPROCESSORS)
 
-AUDIO = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav", target_sr=SAMPLE_RATE, duration_secs=AUDIO_DURATION_SEC)
+AUDIO = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav", target_sr=SAMPLE_RATE, duration_secs=AUDIO_DURATION_SEC).squeeze()
 
 
 ###############################################################################
