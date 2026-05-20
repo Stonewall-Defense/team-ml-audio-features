@@ -12,8 +12,11 @@ import torch
 ###############################################################################
 # Local Imports
 ###############################################################################
-from ._common import MelType, ScalingType, ExportableSTFT, AudioPreprocessor, BaseFeatureSource
-from ._common import power_of_two, create_dct, create_scaler, generate_filters, determine_spec_type, scale_spec, load_params, write_params
+from ._filters import MelType, generate_filters
+from ._math import power_of_two, create_dct, scale_spec
+from ._scale import ScalingType, create_scaler
+from ._spec import ExportableSTFT, determine_spec_type, WindowFunction
+from ._util import AudioPreprocessor, AudioPostprocessor, BaseFeatureSource, load_params, write_params
 
 
 ###############################################################################
@@ -26,6 +29,7 @@ class FeatureChannel(torch.nn.Module):
                  # For all spectra
                  n_fft: Optional[int] = None,
                  hop_length: Optional[int] = None,
+                 window_type: Optional[WindowFunction] = None,
                  scale_spec: Optional[bool] = None,
 
                  # Shared
@@ -54,8 +58,7 @@ class FeatureChannel(torch.nn.Module):
         self.n_fft = n_fft or 1024
 
         if hop_length is not None and hop_length > (self.n_fft // 2):
-            warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})")
-        self.hop_length = hop_length or self.n_fft // 4
+            warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} for n_fft = {self.n_fft} (currently {hop_length})")
 
         self.scale_spec = scale_spec if scale_spec is not None else True
 
@@ -83,7 +86,7 @@ class FeatureChannel(torch.nn.Module):
         ###################
 
         # Basic spectrogram
-        self._stft = ExportableSTFT(self.n_fft, self.hop_length)
+        self._stft = ExportableSTFT(self.n_fft, hop_length=hop_length, window_type=window_type)
 
         fb = generate_filters(self.n_fft, self.n_filters, self.sample_rate, self.mel_type)
         self.register_buffer("fb", fb)
@@ -183,9 +186,14 @@ class FeatureChannel(torch.nn.Module):
 class FeatureSource(BaseFeatureSource):
     def __init__(self,
                  feature_channels: list[FeatureChannel],
+                 *,
+                 # Parent Params
                  preprocessors: Sequence[AudioPreprocessor] = [],
+                 postprocessors: Sequence[AudioPostprocessor] = [],
                  ):
-        super(FeatureSource, self).__init__(preprocessors)
+        super(FeatureSource, self).__init__(preprocessors=preprocessors,
+                                            postprocessors=postprocessors,
+                                            )
 
         if len(feature_channels) == 0:
             raise ValueError("Must include at least one spec type")
@@ -197,10 +205,7 @@ class FeatureSource(BaseFeatureSource):
     def num_channels(self):
         return len(self.fc)
 
-    def forward(self, wav: torch.Tensor) -> torch.Tensor:
-        for preproc in self.preprocessors:
-            wav = preproc(wav)
-
+    def _make_specs(self, wav: torch.Tensor) -> torch.Tensor:
         spectra = [chan(wav) for chan in self.feature_channels]
         return torch.stack(spectra, dim=1)
 

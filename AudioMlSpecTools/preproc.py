@@ -8,7 +8,7 @@ import torch
 ###############################################################################
 # Local Imports
 ###############################################################################
-from ._common import AudioPreprocessor
+from ._util import AudioPreprocessor
 
 
 ###############################################################################
@@ -21,6 +21,8 @@ class HighPassFilter(AudioPreprocessor):
                  cutoff_freq: int,
                  rolloff_db: int,
                  ):
+        super(AudioPreprocessor, self).__init__()
+
         nyquist = sample_rate // 2
         if cutoff_freq < 0 or cutoff_freq > nyquist:
             raise ValueError(f"Cutoff freq must be >0 Hz and less than the Nyquist rate ({nyquist})")
@@ -40,7 +42,7 @@ class HighPassFilter(AudioPreprocessor):
 
         self.zi = sosfilt_zi(self.sos)
 
-    def __call__(self, wav: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def _process(self, wav: torch.Tensor | np.ndarray) -> torch.Tensor:
         _wav = wav.numpy() if isinstance(wav, torch.Tensor) else wav
         if _wav.ndim != 1:
             raise ValueError(f"Improper input dim; must be 1 but is {_wav.ndim}")

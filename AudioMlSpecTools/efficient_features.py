@@ -12,8 +12,11 @@ import torch
 ###############################################################################
 # Local Imports
 ###############################################################################
-from ._common import MelType, ScalingType, ExportableSTFT, AudioPreprocessor, BaseFeatureSource
-from ._common import power_of_two, create_dct, create_scaler, generate_filters, scale_spec
+from ._filters import MelType, generate_filters
+from ._math import power_of_two, create_dct, scale_spec
+from ._scale import ScalingType, create_scaler
+from ._spec import ExportableSTFT, WindowFunction
+from ._util import AudioPreprocessor, AudioPostprocessor, BaseFeatureSource
 
 
 ###############################################################################
@@ -51,11 +54,15 @@ class EfficientFeatureSource(BaseFeatureSource):
     def __init__(self,
                  sample_rate: int,
                  channels: list[ChannelConfig],
-                 preprocessors: Sequence[AudioPreprocessor] = [],
                  *,
+                 # Parent Params
+                 preprocessors: Sequence[AudioPreprocessor] = [],
+                 postprocessors: Sequence[AudioPostprocessor] = [],
+
                  # For all spectra
                  n_fft: Optional[int] = None,
                  hop_length: Optional[int] = None,
+                 window_type: Optional[WindowFunction] = None,
 
                  # Shared
                  n_filters: Optional[int] = None,
@@ -63,7 +70,9 @@ class EfficientFeatureSource(BaseFeatureSource):
                  # For all cepstra
                  cepstral_coefficients: Optional[int] = None,
                  ):
-        super(EfficientFeatureSource, self).__init__(preprocessors)
+        super(EfficientFeatureSource, self).__init__(preprocessors=preprocessors,
+                                                     postprocessors=postprocessors,
+                                                     )
 
         self.channels = channels
 
@@ -87,8 +96,7 @@ class EfficientFeatureSource(BaseFeatureSource):
         self.n_fft = n_fft or 1024
 
         if hop_length is not None and hop_length > (self.n_fft // 2):
-            warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} mels for n_fft = {self.n_fft} (currently {hop_length})")
-        self.hop_length = hop_length or self.n_fft // 4
+            warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} for n_fft = {self.n_fft} (currently {hop_length})")
 
         # Shared configs (mels, MFCC, LFCC)
         if n_filters is not None and n_filters > (self.n_fft // 8):
@@ -105,7 +113,7 @@ class EfficientFeatureSource(BaseFeatureSource):
         ###################
 
         # Basic spectrogram
-        self._stft = ExportableSTFT(self.n_fft, self.hop_length)
+        self._stft = ExportableSTFT(self.n_fft, hop_length=hop_length, window_type=window_type)
 
         if self.has_lin_freq:
             self.register_buffer("lin_filt", generate_filters(self.n_fft, self.n_filters, self.sample_rate, None))
@@ -126,10 +134,7 @@ class EfficientFeatureSource(BaseFeatureSource):
         else:
             self.dct = None
 
-    def forward(self, wav: torch.Tensor) -> torch.Tensor:
-        for preproc in self.preprocessors:
-            wav = preproc(wav)
-
+    def _make_specs(self, wav: torch.Tensor) -> torch.Tensor:
         spec = self._stft(wav)
 
         if self.lin_filt is not None:
