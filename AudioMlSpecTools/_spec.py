@@ -60,11 +60,11 @@ def make_window(window_type: WindowFunction, n_fft: int):
 # New Classes
 ###############################################################################
 class ExportableSTFT(torch.nn.Module):
-    """
+    '''
         Exportable to Executorch. Created by Claude with supervision.
 
         Results are very slightly different than Torch but show no noticeable difference in model accuracy or training.
-    """
+    '''
     def __init__(self,
                  n_fft: int,
                  *,
@@ -91,8 +91,6 @@ class ExportableSTFT(torch.nn.Module):
         self.hop_length = hop_length or ideal_hop_length(_window_type, n_fft)
         self.n_fft = n_fft
         self.pad = n_fft // 2
-
-        print(_window_type, self.hop_length)
 
         # Shape: (n_fft//2+1, n_fft)
         self.register_buffer("dft_real", torch.cos(angles) * _window)

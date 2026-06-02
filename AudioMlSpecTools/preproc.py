@@ -15,6 +15,10 @@ from ._util import AudioPreprocessor
 # Classes
 ###############################################################################
 class HighPassFilter(AudioPreprocessor):
+    '''
+        Implements a Butterworth filter that resets to initial conditions after each input.
+        Cutoff frequency is the "-3 dB point."
+    '''
     def __init__(self,
                  *,
                  sample_rate: int,

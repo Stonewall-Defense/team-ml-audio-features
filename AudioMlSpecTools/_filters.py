@@ -27,7 +27,7 @@ class MelType(Enum):
 ###############################################################################
 def generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Optional[MelType]):
     n_freqs = n_fft // 2 + 1
-    f_min = 20.0
+    f_min = 20.0                        # PyTorch uses zero, but that causes issues with the filter banks
     f_max = float(sample_rate // 2)
 
     if mel_type:

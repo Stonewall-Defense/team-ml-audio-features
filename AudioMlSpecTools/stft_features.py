@@ -22,6 +22,10 @@ from ._util import AudioPreprocessor, AudioPostprocessor, BaseFeatureSource
 # Export Classes
 ###############################################################################
 class FullRangeStftFeatureSource(BaseFeatureSource):
+    '''
+        Unlike other feature sources, this one does not apply linear filters to the STFT output.
+        This gives higher resolution but makes the size (slightly) harder to control.
+    '''
     def __init__(self,
                  sample_rate: int,
                  *,

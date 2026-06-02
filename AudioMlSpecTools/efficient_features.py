@@ -51,6 +51,10 @@ class ChannelConfig:
 # Classes
 ###############################################################################
 class EfficientFeatureSource(BaseFeatureSource):
+    '''
+        Calculates one or more feature channels with a restricted set of inputs.
+        Uses the fewest-possible operations, within reason.
+    '''
     def __init__(self,
                  sample_rate: int,
                  channels: list[ChannelConfig],
