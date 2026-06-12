@@ -1,15 +1,36 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
+from enum import Enum
 import math
 import os
 from typing import Optional
+import warnings
 
 ###############################################################################
 # 3PP Imports
 ###############################################################################
+import soundfile
 import torch
 import torchcodec
+
+
+###############################################################################
+# Enums, Dataclasses, and Types
+###############################################################################
+class AudioEncoding(Enum):
+    PCM_S = "PCM_S"
+    PCM_U = "PCM_U"
+    PCM_F = "PCM_F"
+    ULAW = "ULAW"
+    ALAW = "ALAW"
+
+
+class BitsPerSample(Enum):
+    _8 = 8
+    _16 = 16
+    _24 = 24
+    _32 = 32
 
 
 ###############################################################################
@@ -62,6 +83,30 @@ def load_wav(path: str,
     return wave
 
 
+def load_wav_as_is(path: str) -> tuple[torch.Tensor, int]:
+    '''
+    Load a WAV file into memory for processing.
+
+    Other file types may work but have not been tested.
+
+    Positional arguments:
+        path -- Location of the audio file
+
+    Returns:
+        Tuple of: entire wav file as a PyTorch Tensor, sample rate
+    '''
+    audio = torchcodec.decoders.AudioDecoder(path).get_all_samples()
+    return _prepare_audio(audio)
+
+
+def is_multichannel(wave: torch.Tensor) -> bool:
+    return wave.size(0) > 1
+
+
+def to_mono(wave: torch.Tensor) -> torch.Tensor:
+    return torch.mean(wave, dim=0, keepdim=True) if is_multichannel(wave) else wave
+
+
 def list_audio_files(dir: str) -> list[str]:
     return sorted([f for f in os.listdir(dir) if f.endswith(".wav")])
 
@@ -99,22 +144,15 @@ class WavReader:
 ###############################################################################
 # Helpers
 ###############################################################################
-def _is_multichannel(wave: torch.Tensor) -> bool:
-    return wave.size(0) > 1
-
-
 def _prepare_audio(audio: torchcodec.AudioSamples, target_sr: Optional[int] = None):
     wave = audio.data
 
     # Resample
     final_sr = target_sr or audio.sample_rate
-
-    if target_sr is not None:
-        wave = resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
+    wave = resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
 
     # Stereo -> Mono
-    if _is_multichannel(wave):
-        wave = torch.mean(wave, dim=0, keepdim=True)
+    wave = to_mono(wave)
 
     return wave, final_sr
 
@@ -148,6 +186,10 @@ def _prepare_audio(audio: torchcodec.AudioSamples, target_sr: Optional[int] = No
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+###############################################################################
+
+###############################################################################
+# From `torchaudio.functional`
 ###############################################################################
 
 def _get_sinc_resample_kernel(
@@ -247,11 +289,12 @@ def _apply_sinc_resample_kernel(
 def resample(
     waveform: torch.Tensor,
     orig_freq: int,
-    new_freq: int,
+    new_freq: Optional[int],
+    *,
     lowpass_filter_width: int = 6,
     rolloff: float = 0.99,
 ) -> torch.Tensor:
-    if orig_freq == new_freq:
+    if orig_freq == new_freq or new_freq is None:
         return waveform
 
     gcd = math.gcd(int(orig_freq), int(new_freq))
@@ -267,3 +310,83 @@ def resample(
     )
     resampled = _apply_sinc_resample_kernel(waveform, orig_freq, new_freq, gcd, kernel, width)
     return resampled
+
+
+###############################################################################
+# From `torchaudio._backend.soundfile`
+# Updated by Ryan Quinn 12 June 2026
+###############################################################################
+def _get_subtype(dtype: torch.dtype,
+                 encoding: Optional[AudioEncoding],
+                 bits_per_sample: Optional[BitsPerSample],
+                 ):
+    enc_ = encoding.value if encoding else None
+    bps_ = bits_per_sample.value if bits_per_sample else None
+
+    if not enc_:
+        if not bps_:
+            subtype = {
+                torch.uint8: "PCM_U8",
+                torch.int16: "PCM_16",
+                torch.int32: "PCM_32",
+                torch.float32: "FLOAT",
+                torch.float64: "DOUBLE",
+            }.get(dtype)
+            if not subtype:
+                raise ValueError(f"Unsupported dtype for wav: {dtype}")
+            return subtype
+        if bps_ == 8:
+            return "PCM_U8"
+        return f"PCM_{bps_}"
+    if enc_ == "PCM_S":
+        if not bps_:
+            return "PCM_32"
+        if bps_ == 8:
+            raise ValueError("wav does not support 8-bit signed PCM encoding.")
+        return f"PCM_{bps_}"
+    if enc_ == "PCM_U":
+        if bps_ in (None, 8):
+            return "PCM_U8"
+        raise ValueError("wav only supports 8-bit unsigned PCM encoding.")
+    if enc_ == "PCM_F":
+        if bps_ in (None, 32):
+            return "FLOAT"
+        if bps_ == 64:
+            return "DOUBLE"
+        raise ValueError("wav only supports 32/64-bit float PCM encoding.")
+    if enc_ == "ULAW":
+        if bps_ in (None, 8):
+            return "ULAW"
+        raise ValueError("wav only supports 8-bit mu-law encoding.")
+    if enc_ == "ALAW":
+        if bps_ in (None, 8):
+            return "ALAW"
+        raise ValueError("wav only supports 8-bit a-law encoding.")
+    raise ValueError(f"wav does not support {enc_}.")
+
+
+def save_wav(
+    filepath: str,
+    src: torch.Tensor,
+    sample_rate: int,
+    *,
+    channels_first: bool = True,
+    encoding: Optional[AudioEncoding] = None,
+    bits_per_sample: Optional[BitsPerSample] = None,
+):
+    if src.ndim == 1:
+        src = src.unsqueeze(0)
+    elif src.ndim != 2:
+        raise ValueError(f"Expected an at most 2D Tensor, got {src.ndim}D.")
+    elif bits_per_sample is not None and bits_per_sample.value == 24:
+        warnings.warn(
+            "Saving audio with 24 bits per sample might warp samples near -1. "
+            "Using 16 bits per sample might be able to avoid this."
+        )
+
+    subtype = _get_subtype(src.dtype, encoding, bits_per_sample)
+
+    if channels_first:
+        src = src.t()
+
+    soundfile.write(file=filepath, data=src, samplerate=sample_rate, subtype=subtype)

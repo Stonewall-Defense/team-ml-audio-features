@@ -1,9 +1,0 @@
-numpy==2.4.0
-scikit-maad==1.5.0
-scipy==1.15.0
-torch==2.10.0
-torchcodec==0.10.0
-
-# Dev requirements
-audio_tensor_plotter==0.4.0
-coverage==7.13.1

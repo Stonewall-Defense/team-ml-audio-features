@@ -26,13 +26,7 @@ pip install AudioMlSpecTools
 
 ### Local Installation
 
-Install the dependencies into the environment with `pip`:
-
-```bash
-pip install -r requirements.txt
-```
-
-Then install the package itself locally:
+Install the dependencies and library with `pip`:
 
 ```bash
 pip install .
@@ -45,6 +39,9 @@ See `examples/features.py`.
 ## Testing
 
 ```bash
+# If needed, install test dependencies
+# pip install .[test]
+
 python3 -m coverage run -m unittest discover -s test -p "*_test.py" && python -m coverage report --skip-covered
 python -m coverage html
 ```

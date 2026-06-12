@@ -11,4 +11,5 @@ from .efficient_features import ChannelConfig, EfficientFeatureSource # noqa
 from .flexible_features import FeatureSource, FeatureChannel # noqa
 from .stft_features import FullRangeStftFeatureSource # noqa
 
-from .wav import load_wav, set_audio_length, list_audio_files, WavReader, resample # noqa
+from .wav import load_wav, load_wav_as_is, to_mono, is_multichannel, set_audio_length, list_audio_files, resample, save_wav # noqa
+from .wav import AudioEncoding, BitsPerSample, WavReader # noqa

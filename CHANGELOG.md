@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-06-12
+
+### Added
+
+- More audio file loading options
+- `save_wav` function inspired by `torchaudio`
+- Enumerated types for audio formats and bits per sample
+
+### Changed
+
+- Exposed some internal audio convenience functions like `is_multichannel` and `to_mono`
+
+### Removed
+
+- `requirements.txt` file (install dependencies from `pyproject.toml` now)
+
 ## [0.7.0] - 2026-06-05
 
 ### Changed

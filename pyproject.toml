@@ -1,14 +1,6 @@
 [project]
 name = "AudioMlSpecTools"
-version = "v0.7.0"
-
-dependencies = [
-    "numpy ~= 2.4",
-    "scikit-maad ~= 1.5",
-    "scipy ~= 1.15",
-    "torch ~= 2.10",
-    "torchcodec ~= 0.10",
-]
+version = "v0.8.0"
 
 authors = [
   { name="Ryan Quinn", email="ryan.quinn@certusinnovations.com" },
@@ -26,6 +18,22 @@ classifiers = [
 ]
 license = "MIT"
 license-files = ["LICENSE*"]
+
+dependencies = [
+    "numpy ~= 2.4",
+    "scikit-maad ~= 1.5",
+    "scipy ~= 1.15",
+    "soundfile ~= 0.13",
+    "torch ~= 2.10",
+    "torchcodec ~= 0.10",
+]
+
+[project.optional-dependencies]
+test = [
+    "coverage ~= 7.13",
+
+    "audio_tensor_plotter ~= 0.4",
+]
 
 [project.urls]
 Homepage = "https://github.com/Stonewall-Defense/team-ml-audio-features"
