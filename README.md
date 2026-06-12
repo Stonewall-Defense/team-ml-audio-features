@@ -18,7 +18,15 @@ With this library, you can easily try as many feature extraction methods as you 
 
 ## Installation
 
-Install the dependencies into the environment with [pip](https://pypi.org/project/pip/):
+- Install using [pip](https://pypi.org/project/pip/):
+
+```bash
+pip install AudioMlSpecTools
+```
+
+### Local Installation
+
+Install the dependencies into the environment with `pip`:
 
 ```bash
 pip install -r requirements.txt

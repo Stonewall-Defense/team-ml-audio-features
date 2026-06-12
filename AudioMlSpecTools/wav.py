@@ -56,18 +56,7 @@ def load_wav(path: str,
     '''
 
     audio = torchcodec.decoders.AudioDecoder(path).get_all_samples()
-    wave = audio.data
-
-    # Resample
-    final_sr = target_sr or audio.sample_rate
-
-    if target_sr is not None:
-        wave = resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
-
-    # Stereo -> Mono
-    if _is_multichannel(wave):
-        wave = torch.mean(wave, dim=0, keepdim=True)
-
+    wave, final_sr = _prepare_audio(audio, target_sr)
     wave = set_audio_length(wave, final_sr, duration_secs)
 
     return wave
@@ -81,20 +70,30 @@ def list_audio_files(dir: str) -> list[str]:
 # Classes
 ###############################################################################
 class WavReader:
-    def __init__(self, target_sr: int, duration_secs: Optional[int] = None):
+    def __init__(self, filename: str, target_sr: int):
+        self.filename = filename
         self.target_sr = target_sr
-        self.duration_secs = duration_secs
 
-    def load(self, path: str) -> torch.Tensor:
-        return load_wav(path, target_sr=self.target_sr, duration_secs=self.duration_secs)
+    def load(self, *, start_sec: Optional[int], end_sec: Optional[int], pad=False) -> torch.Tensor:
+        if start_sec is None and end_sec is None:
+            return load_wav(self.filename, target_sr=self.target_sr)
+        elif start_sec and start_sec < 0:
+            raise ValueError("start_sec must be at least zero")
+        elif end_sec and end_sec < 0:
+            raise ValueError("end_sec must be at least zero")
+        elif start_sec and end_sec and end_sec <= start_sec:
+            raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
 
-    def __call__(self, path: str) -> torch.Tensor:
-        return self.load(path)
+        audio = torchcodec.decoders.AudioDecoder(self.filename).get_samples_played_in_range(start_sec or 0, end_sec)
+        wave, final_sr = _prepare_audio(audio, self.target_sr)
 
-    def clip(self, wav: torch.Tensor, start_sec: int, end_sec: int) -> torch.Tensor:
-        start_frame = start_sec * self.target_sr
-        end_frame = end_sec * self.target_sr
-        return wav[:, start_frame:end_frame]
+        if start_sec and end_sec and pad:
+            wave = set_audio_length(wave, final_sr, end_sec - start_sec)
+
+        return wave
+
+    def __call__(self, *, start_sec: Optional[int], end_sec: Optional[int], pad=False) -> torch.Tensor:
+        return self.load(start_sec=start_sec, end_sec=end_sec, pad=pad)
 
 
 ###############################################################################
@@ -102,6 +101,22 @@ class WavReader:
 ###############################################################################
 def _is_multichannel(wave: torch.Tensor) -> bool:
     return wave.size(0) > 1
+
+
+def _prepare_audio(audio: torchcodec.AudioSamples, target_sr: Optional[int] = None):
+    wave = audio.data
+
+    # Resample
+    final_sr = target_sr or audio.sample_rate
+
+    if target_sr is not None:
+        wave = resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
+
+    # Stereo -> Mono
+    if _is_multichannel(wave):
+        wave = torch.mean(wave, dim=0, keepdim=True)
+
+    return wave, final_sr
 
 
 ###############################################################################
