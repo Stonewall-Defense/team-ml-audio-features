@@ -371,9 +371,15 @@ def save_wav(
     sample_rate: int,
     *,
     channels_first: bool = True,
-    encoding: Optional[AudioEncoding] = None,
-    bits_per_sample: Optional[BitsPerSample] = None,
+    encoding: Optional[AudioEncoding | str] = None,
+    bits_per_sample: Optional[BitsPerSample | int] = None,
 ):
+    if isinstance(encoding, str):
+        encoding = AudioEncoding(encoding)
+
+    if isinstance(bits_per_sample, int):
+        bits_per_sample = BitsPerSample(bits_per_sample)
+
     if src.ndim == 1:
         src = src.unsqueeze(0)
     elif src.ndim != 2:
