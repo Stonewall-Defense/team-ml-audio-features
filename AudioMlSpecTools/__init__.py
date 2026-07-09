@@ -1,4 +1,4 @@
-from ._filters import MelType, generate_filters, linear_fbanks, melscale_fbanks # noqa
+from ._filters import MelType, generate_filters, linear_fbanks, melscale_fbanks, create_triangular_filterbank, mel_to_hz, hz_to_mel # noqa
 from ._math import power_of_two, scale_spec, create_dct # noqa
 from ._scale import create_scaler, AmplitudeToDB, ScalingType, log_scale # noqa
 from ._spec import SpecType, WindowFunction, ExportableSTFT, determine_spec_type # noqa

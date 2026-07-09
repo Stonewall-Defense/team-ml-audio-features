@@ -79,7 +79,7 @@ def generate_filters(n_fft: int, n_filters: int, sample_rate: int, mel_type: Opt
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###############################################################################
-def _hz_to_mel(freq: float, mel_type: MelType) -> float:
+def hz_to_mel(freq: float, mel_type: MelType) -> float:
     if mel_type == MelType.OSHAUGHNESSY:
         return 2595.0 * math.log10(1.0 + (freq / 700.0))
     elif mel_type == MelType.FANT:
@@ -98,7 +98,7 @@ def _hz_to_mel(freq: float, mel_type: MelType) -> float:
             return min_log_mel + math.log(freq / min_log_hz) / logstep
 
 
-def _mel_to_hz(mels: torch.Tensor, mel_type: MelType) -> torch.Tensor:
+def mel_to_hz(mels: torch.Tensor, mel_type: MelType) -> torch.Tensor:
     if mel_type == MelType.OSHAUGHNESSY:
         return 700.0 * (10.0 ** (mels / 2595.0) - 1.0)
     elif mel_type == MelType.FANT:
@@ -121,7 +121,7 @@ def _mel_to_hz(mels: torch.Tensor, mel_type: MelType) -> torch.Tensor:
         return freqs
 
 
-def _create_triangular_filterbank(
+def create_triangular_filterbank(
     all_freqs: torch.Tensor,
     f_pts: torch.Tensor,
 ) -> torch.Tensor:
@@ -150,14 +150,14 @@ def melscale_fbanks(
     all_freqs = torch.linspace(0, sample_rate // 2, n_freqs)
 
     # calculate mel freq bins
-    m_min = _hz_to_mel(f_min, mel_type=mel_type)
-    m_max = _hz_to_mel(f_max, mel_type=mel_type)
+    m_min = hz_to_mel(f_min, mel_type=mel_type)
+    m_max = hz_to_mel(f_max, mel_type=mel_type)
 
     m_pts = torch.linspace(m_min, m_max, n_mels + 2)
-    f_pts = _mel_to_hz(m_pts, mel_type=mel_type)
+    f_pts = mel_to_hz(m_pts, mel_type=mel_type)
 
     # create filterbank
-    fb = _create_triangular_filterbank(all_freqs, f_pts)
+    fb = create_triangular_filterbank(all_freqs, f_pts)
 
     if (fb.max(dim=0).values == 0.0).any():
         warnings.warn(
@@ -183,6 +183,6 @@ def linear_fbanks(
     f_pts = torch.linspace(f_min, f_max, n_filter + 2)
 
     # create filterbank
-    fb = _create_triangular_filterbank(all_freqs, f_pts)
+    fb = create_triangular_filterbank(all_freqs, f_pts)
 
     return fb
