@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-07-10
+
+### Added
+
+- Cached `Resample` object
+
+### Changed
+
+- Moved resampling code to own module
+- Allow `float` durations for loading WAV files
+- Reworked `WavReader` class for broader applicability
+
+### Removed
+
+- `load_wav_as_is` rolled into new `load_wav` function
+
 ## [0.10.0] - 2026-07-09
 
 ### Added
