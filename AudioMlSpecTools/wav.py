@@ -3,6 +3,7 @@
 ###############################################################################
 from enum import Enum
 import os
+from pathlib import Path
 from typing import Optional
 import warnings
 
@@ -63,7 +64,7 @@ def set_audio_length(wave: torch.Tensor, sr: int, duration_secs: Optional[float]
         return wave
 
 
-def load_wav(path: str,
+def load_wav(path: Path | str,
              *,
              target_sr: Optional[int] = None,
              duration_secs: Optional[int] = None,
@@ -125,10 +126,10 @@ class WavReader:
         else:
             self.resample = None
 
-    def __call__(self, filename: str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
+    def __call__(self, filename: Path | str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
         return self.read(filename, start_sec=start_sec, end_sec=end_sec)
 
-    def read(self, filename: str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
+    def read(self, filename: Path | str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
         if start_sec and start_sec < 0:
             raise ValueError("start_sec must be at least zero")
         elif end_sec and end_sec < 0:
@@ -215,7 +216,6 @@ def _prepare_audio(audio: torchcodec.AudioSamples,
 # From `torchaudio._backend.soundfile`
 # Updated by Ryan Quinn 12 June 2026
 ###############################################################################
-
 def _get_subtype(dtype: torch.dtype,
                  encoding: Optional[AudioEncoding],
                  bits_per_sample: Optional[BitsPerSample],

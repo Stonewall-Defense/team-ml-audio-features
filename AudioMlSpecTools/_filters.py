@@ -3,7 +3,7 @@
 ###############################################################################
 from enum import Enum
 import math
-from typing import Optional
+from typing import Optional, TypeVar
 import warnings
 
 ###############################################################################
@@ -13,13 +13,16 @@ import torch
 
 
 ###############################################################################
-# Enumerated Types
+# Enumerated Types and TypeVars
 ###############################################################################
 class MelType(Enum):
     OSHAUGHNESSY = "O'Shaughnessy"
     FANT = "Fant"
     LINDSAY_NORMAN = "Lindsay & Norman"
     SLANEY = "Slaney"
+
+
+T = TypeVar("T", bound=torch.Tensor | float)
 
 
 ###############################################################################
@@ -98,7 +101,7 @@ def hz_to_mel(freq: float, mel_type: MelType) -> float:
             return min_log_mel + math.log(freq / min_log_hz) / logstep
 
 
-def mel_to_hz(mels: torch.Tensor, mel_type: MelType) -> torch.Tensor:
+def mel_to_hz(mels: T, mel_type: MelType) -> T:
     if mel_type == MelType.OSHAUGHNESSY:
         return 700.0 * (10.0 ** (mels / 2595.0) - 1.0)
     elif mel_type == MelType.FANT:
@@ -116,10 +119,18 @@ def mel_to_hz(mels: torch.Tensor, mel_type: MelType) -> torch.Tensor:
         logstep = math.log(6.4) / 27.0
 
         log_t = mels >= min_log_mel
-        freqs[log_t] = min_log_hz * torch.exp(logstep * (mels[log_t] - min_log_mel))
+
+        if isinstance(mels, torch.Tensor):
+            freqs = f_sp * mels
+            freqs[log_t] = min_log_hz * torch.exp(logstep * (mels[log_t] - min_log_mel))
+        else:
+            freqs = f_sp * mels
+            freqs = min_log_hz * math.exp(logstep * (mels - min_log_mel))
 
         return freqs
 
+
+mel_to_hz(4.0, MelType.OSHAUGHNESSY)
 
 def create_triangular_filterbank(
     all_freqs: torch.Tensor,
