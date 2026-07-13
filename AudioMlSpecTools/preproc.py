@@ -48,9 +48,18 @@ class HighPassFilter(AudioPreprocessor):
 
     def _process(self, wav: torch.Tensor | np.ndarray) -> torch.Tensor:
         _wav = wav.numpy() if isinstance(wav, torch.Tensor) else wav
-        if _wav.ndim != 1:
-            raise ValueError(f"Improper input dim; must be 1 but is {_wav.ndim}")
 
-        processed_samples, _ = sosfilt(self.sos, _wav, zi=self.zi * _wav[0])
-        processed_samples = processed_samples.astype(np.float32)
-        return torch.from_numpy(processed_samples)
+        if _wav.ndim == 1:
+            processed_samples, _ = sosfilt(self.sos, _wav, zi=self.zi * _wav[0])
+            processed_samples = processed_samples.astype(np.float32)
+            return torch.from_numpy(processed_samples)
+        elif _wav.ndim == 2:
+            if _wav.shape[0] > _wav.shape[1]:
+                raise ValueError("Audio input must be channels first")
+
+            for idx in range(_wav.shape[0]):
+                processed_samples, _ = sosfilt(self.sos, _wav[idx], zi=self.zi * _wav[idx][0])
+                _wav[idx] = processed_samples.astype(np.float32)
+            return torch.from_numpy(_wav)
+        else:
+            raise ValueError(f"Improper input dim; must be 1 or 2 but is {_wav.ndim}")

@@ -69,6 +69,7 @@ def load_wav(path: Path | str,
              target_sr: Optional[int] = None,
              duration_secs: Optional[int] = None,
              mono=True,
+             pad=False,
              ) -> torch.Tensor:
     '''
     Load a WAV file into memory for processing.
@@ -85,7 +86,7 @@ def load_wav(path: Path | str,
 
     audio = torchcodec.decoders.AudioDecoder(path).get_all_samples()
     wave, final_sr = _prepare_audio(audio, target_sr=target_sr, mono=mono)
-    wave = set_audio_length(wave, final_sr, duration_secs)
+    wave = set_audio_length(wave, final_sr, duration_secs, pad)
 
     return wave
 
