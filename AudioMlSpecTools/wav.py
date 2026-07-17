@@ -70,7 +70,7 @@ def load_wav(path: Path | str,
              duration_secs: Optional[int] = None,
              mono=True,
              pad=False,
-             ) -> torch.Tensor:
+             ) -> tuple[torch.Tensor, int]:
     '''
     Load a WAV file into memory for processing.
 
@@ -88,7 +88,7 @@ def load_wav(path: Path | str,
     wave, final_sr = _prepare_audio(audio, target_sr=target_sr, mono=mono)
     wave = set_audio_length(wave, final_sr, duration_secs, pad)
 
-    return wave
+    return wave, final_sr
 
 
 def is_multichannel(wave: torch.Tensor) -> bool:
