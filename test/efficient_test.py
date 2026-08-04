@@ -30,7 +30,7 @@ N_RUNS = 100
 
 
 # Audio data
-wav = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
+wav, _ = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
 
 
 # Efficient Features

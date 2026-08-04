@@ -10,9 +10,10 @@ import warnings
 ###############################################################################
 # 3PP Imports
 ###############################################################################
+import numpy as np
 import soundfile
+from tinytag import TinyTag
 import torch
-import torchcodec
 
 ###############################################################################
 # Local Imports
@@ -84,9 +85,10 @@ def load_wav(path: Path | str,
         duration_secs -- Consistent duration of output audio, either by truncation or zero-padding as needed
     '''
 
-    audio = torchcodec.decoders.AudioDecoder(path).get_all_samples()
-    wave, final_sr = _prepare_audio(audio, target_sr=target_sr, mono=mono)
-    wave = set_audio_length(wave, final_sr, duration_secs, pad)
+    audio, file_sr = _load(path, end_sec=duration_secs, mono=mono, pad=pad)
+    wave = resample(audio, orig_freq=file_sr, new_freq=target_sr)
+
+    final_sr = target_sr or file_sr
 
     return wave, final_sr
 
@@ -131,21 +133,7 @@ class WavReader:
         return self.read(filename, start_sec=start_sec, end_sec=end_sec)
 
     def read(self, filename: Path | str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
-        if start_sec and start_sec < 0:
-            raise ValueError("start_sec must be at least zero")
-        elif end_sec and end_sec < 0:
-            raise ValueError("end_sec must be at least zero")
-        elif start_sec and end_sec and end_sec <= start_sec:
-            raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
-
-        f = torchcodec.decoders.AudioDecoder(filename)
-
-        if start_sec is None and end_sec is None:
-            audio = f.get_all_samples()
-        else:
-            audio = f.get_samples_played_in_range(start_sec or 0, end_sec)
-
-        file_sr = audio.sample_rate
+        wave, file_sr = _load(filename, start_sec=start_sec, end_sec=end_sec, mono=self.mono, pad=self.pad)
 
         if self.expected_file_sr and self.expected_file_sr != file_sr:
             msg = f"File {filename} has sample rate {file_sr} but expected {self.expected_file_sr}"
@@ -154,10 +142,7 @@ class WavReader:
             else:
                 warnings.warn(msg)
 
-        wave, final_sr = _prepare_audio(audio, target_sr=self.target_sr, mono=self.mono, resampler=self.resample)
-
-        duration = end_sec - (start_sec or 0) if end_sec else None
-        wave = set_audio_length(wave, final_sr, duration, self.pad)
+        wave = self.resample(wave) if self.resample else resample(wave, orig_freq=file_sr, new_freq=self.target_sr)
 
         return wave
 
@@ -165,23 +150,51 @@ class WavReader:
 ###############################################################################
 # Helpers
 ###############################################################################
-def _prepare_audio(audio: torchcodec.AudioSamples,
-                   *,
-                   resampler: Optional[Resample] = None,
-                   target_sr: Optional[int] = None,
-                   mono=True,
-                   ):
-    wave = audio.data
+def _metadata(filename: Path | str):
+    if not str(filename).endswith("wav"):
+        raise ValueError(f"Only WAV files are supported: {filename}")
 
-    # Resample
-    final_sr = target_sr or audio.sample_rate
-    wave = resampler(wave) if resampler else resample(wave, orig_freq=audio.sample_rate, new_freq=target_sr)
+    info = TinyTag.get(filename)
+    n_chan = info.channels
+    sr = info.samplerate
 
-    # Stereo -> Mono
+    if n_chan is None or sr is None:
+        raise ValueError(f"Could not get metadata for file: {filename}")
+    else:
+        return n_chan, sr
+
+
+def _load(filename: Path | str,
+          *,
+          n_chan: Optional[int] = None,
+          sr: Optional[int] = None,
+          start_sec: Optional[float] = None,
+          end_sec: Optional[float] = None,
+          mono=True,
+          pad=False,
+          ):
+    if n_chan is None or sr is None:
+        n_chan, sr = _metadata(filename)
+
+    if start_sec and start_sec < 0:
+        raise ValueError("start_sec must be at least zero")
+    elif end_sec and end_sec < 0:
+        raise ValueError("end_sec must be at least zero")
+    elif start_sec and end_sec and end_sec <= start_sec:
+        raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
+
+    start_samples = int(start_sec * sr * n_chan) if start_sec else 0
+    end_samples = int(end_sec * sr * n_chan) if end_sec else None
+    frames = (end_samples - start_samples) if end_samples is not None else -1
+    fill_value = 0 if pad else None
+
+    audio_raw, file_sr = soundfile.read(filename, start=start_samples, frames=frames, fill_value=fill_value, always_2d=True)
+    audio = torch.from_numpy(audio_raw.astype(np.float32).T)
+
     if mono:
-        wave = to_mono(wave)
+        audio = to_mono(audio)
 
-    return wave, final_sr
+    return audio, file_sr
 
 
 ###############################################################################

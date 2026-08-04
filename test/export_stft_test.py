@@ -42,7 +42,7 @@ N_FFT = 1024
 HOP_LEN = N_FFT // 4
 HANN_WINDOW = torch.hann_window(N_FFT)
 
-AUDIO = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
+AUDIO, _ = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
 REF_SPEC = _stft(AUDIO, N_FFT, HOP_LEN, HANN_WINDOW)
 
 
