@@ -1,6 +1,6 @@
 [project]
 name = "AudioMlSpecTools"
-version = "v0.13.0"
+version = "v0.14.0"
 
 authors = [
   { name="Ryan Quinn", email="ryan.quinn@certusinnovations.com" },

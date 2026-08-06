@@ -30,7 +30,8 @@ class FeatureChannel(torch.nn.Module):
                  n_fft: Optional[int] = None,
                  hop_length: Optional[int] = None,
                  window_type: Optional[WindowFunction] = None,
-                 scale_spec: Optional[bool] = None,
+                 scale_spec: bool = True,
+                 nan_to_zero: bool = False,
 
                  # Shared
                  n_filters: Optional[int] = None,
@@ -60,7 +61,8 @@ class FeatureChannel(torch.nn.Module):
         if hop_length is not None and hop_length > (self.n_fft // 2):
             warnings.warn(f"hop_length should be set to no more than 1/2 the FFT window size, or {self.n_fft // 2} for n_fft = {self.n_fft} (currently {hop_length})")
 
-        self.scale_spec = scale_spec if scale_spec is not None else True
+        self.scale_spec = scale_spec
+        self.nan_to_zero = nan_to_zero
 
         # Shared configs (mels, MFCC, LFCC)
         if n_filters is not None and n_filters > (self.n_fft // 8):
@@ -121,6 +123,9 @@ class FeatureChannel(torch.nn.Module):
 
         if self.scale_spec:
             spec = scale_spec(spec)
+
+        if self.nan_to_zero:
+            spec = torch.nan_to_num(spec)
 
         return spec
 
