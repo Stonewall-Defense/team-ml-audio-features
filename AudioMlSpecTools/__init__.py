@@ -4,7 +4,7 @@ from ._scale import create_scaler, AmplitudeToDB, ScalingType, log_scale # noqa
 from ._spec import SpecType, WindowFunction, ExportableSTFT, determine_spec_type # noqa
 from ._util import AudioPreprocessor, BaseFeatureSource, load_params, write_params # noqa
 
-from .preproc import HighPassFilter # noqa
+from .preproc import OneSidedFilter, HighPassFilter, LowPassFilter # noqa
 from .postproc import WienerFilter, RemoveBgSpectralSubtraction # noqa
 
 from .efficient_features import ChannelConfig, EfficientFeatureSource # noqa

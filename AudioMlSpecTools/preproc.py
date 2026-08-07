@@ -1,4 +1,9 @@
 ###############################################################################
+# Global Imports
+###############################################################################
+from typing import Literal
+
+###############################################################################
 # 3PP Imports
 ###############################################################################
 import numpy as np
@@ -14,12 +19,22 @@ from ._util import AudioPreprocessor
 ###############################################################################
 # Classes
 ###############################################################################
-class HighPassFilter(AudioPreprocessor):
+class OneSidedFilter(AudioPreprocessor):
     '''
-        Implements a Butterworth filter that resets to initial conditions after each input.
-        Cutoff frequency is the "-3 dB point."
+        Implements a digital Butterworth filter with constant internal state.
+
+        Parameters
+        ----------
+        filter_type (str):  One of "highpass" or "lowpass"
+
+        sample_rate (int):  Sample rate of the input audio
+
+        cutoff_freq (int):  For a Butterworth filter, this is the "-3 dB point"
+
+        rolloff_db (int):   Filter rolloff per octave, must be a multiple of 6
     '''
     def __init__(self,
+                 filter_type: Literal["highpass", "lowpass"],
                  *,
                  sample_rate: int,
                  cutoff_freq: int,
@@ -38,7 +53,7 @@ class HighPassFilter(AudioPreprocessor):
 
         self.sos = butter(rolloff_db // 6,
                           cutoff_freq,
-                          btype="highpass",
+                          btype=filter_type,
                           analog=False,
                           fs=sample_rate,
                           output="sos",
@@ -63,3 +78,37 @@ class HighPassFilter(AudioPreprocessor):
             return torch.from_numpy(_wav)
         else:
             raise ValueError(f"Improper input dim; must be 1 or 2 but is {_wav.ndim}")
+
+
+class HighPassFilter(OneSidedFilter):
+    '''
+        Implements a highpass filter.
+    '''
+    def __init__(self,
+                 *,
+                 sample_rate: int,
+                 cutoff_freq: int,
+                 rolloff_db: int,
+                 ):
+        super().__init__(filter_type="highpass",
+                         sample_rate=sample_rate,
+                         cutoff_freq=cutoff_freq,
+                         rolloff_db=rolloff_db
+                         )
+
+
+class LowPassFilter(OneSidedFilter):
+    '''
+        Implements a lowpass filter.
+    '''
+    def __init__(self,
+                 *,
+                 sample_rate: int,
+                 cutoff_freq: int,
+                 rolloff_db: int,
+                 ):
+        super().__init__(filter_type="lowpass",
+                         sample_rate=sample_rate,
+                         cutoff_freq=cutoff_freq,
+                         rolloff_db=rolloff_db
+                         )

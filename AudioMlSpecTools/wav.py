@@ -183,11 +183,12 @@ def _load(filename: Path | str,
     elif start_sec and end_sec and end_sec <= start_sec:
         raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
 
-    start_samples = int(start_sec * sr * n_chan) if start_sec else 0
-    end_samples = int(end_sec * sr * n_chan) if end_sec else None
+    start_samples = int(start_sec * sr) if start_sec else 0
+    end_samples = int(end_sec * sr) if end_sec else None
     frames = (end_samples - start_samples) if end_samples is not None else -1
     fill_value = 0 if pad else None
 
+    # ! NB: `frames` means "samples", NOT "frames"
     audio_raw, file_sr = soundfile.read(filename, start=start_samples, frames=frames, fill_value=fill_value, always_2d=True)
     audio = torch.from_numpy(audio_raw.astype(np.float32).T)
 
