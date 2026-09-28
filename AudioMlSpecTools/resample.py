@@ -7,6 +7,7 @@ from typing import Optional
 ###############################################################################
 # 3PP Imports
 ###############################################################################
+import numpy as np
 import torch
 
 
@@ -42,7 +43,7 @@ import torch
 ###############################################################################
 
 def resample(
-    waveform: torch.Tensor,
+    waveform: torch.Tensor | np.ndarray,
     orig_freq: int,
     new_freq: Optional[int],
     *,
@@ -53,8 +54,10 @@ def resample(
         Prefer for one-off resampling, otherwise use the `Resample` class.
     """
 
+    _wav = torch.from_numpy(waveform) if isinstance(waveform, np.ndarray) else waveform
+
     if orig_freq == new_freq or new_freq is None:
-        return waveform
+        return _wav
 
     gcd = math.gcd(int(orig_freq), int(new_freq))
 
@@ -64,10 +67,10 @@ def resample(
         gcd,
         lowpass_filter_width,
         rolloff,
-        waveform.device,
-        waveform.dtype,
+        _wav.device,
+        _wav.dtype,
     )
-    resampled = _apply_sinc_resample_kernel(waveform, orig_freq, new_freq, gcd, kernel, width)
+    resampled = _apply_sinc_resample_kernel(_wav, orig_freq, new_freq, gcd, kernel, width)
     return resampled
 
 

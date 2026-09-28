@@ -166,15 +166,14 @@ def _metadata(filename: Path | str):
 
 def _load(filename: Path | str,
           *,
-          n_chan: Optional[int] = None,
           sr: Optional[int] = None,
           start_sec: Optional[float] = None,
           end_sec: Optional[float] = None,
           mono=True,
           pad=False,
           ):
-    if n_chan is None or sr is None:
-        n_chan, sr = _metadata(filename)
+    if sr is None:
+        _, sr = _metadata(filename)
 
     if start_sec and start_sec < 0:
         raise ValueError("start_sec must be at least zero")
