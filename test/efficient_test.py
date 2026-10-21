@@ -16,9 +16,9 @@ import unittest
 ###############################################################################
 # Local Imports
 ###############################################################################
-from AudioMlSpecTools.efficient_features import ChannelConfig, EfficientFeatureSource
-from AudioMlSpecTools.flexible_features import FeatureChannel, FeatureSource
-from AudioMlSpecTools.wav import load_wav
+from AudioMlSpecTools import EfficientFeatureChannel, EfficientFeatureSource
+from AudioMlSpecTools import FlexibleFeatureChannel, FlexibleFeatureSource
+from AudioMlSpecTools import load_wav
 
 
 ###############################################################################
@@ -35,22 +35,22 @@ wav, _ = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
 
 # Efficient Features
 e_channels = [
-    ChannelConfig(is_mel=False, is_log=False, is_cepstrum=False),
-    ChannelConfig(is_mel=False, is_log=True, is_cepstrum=False),
-    ChannelConfig(is_mel=True, is_log=True, is_cepstrum=False),
-    ChannelConfig(is_mel=True, is_log=True, is_cepstrum=True),
+    EfficientFeatureChannel(is_mel=False, is_log=False, is_cepstrum=False),
+    EfficientFeatureChannel(is_mel=False, is_log=True, is_cepstrum=False),
+    EfficientFeatureChannel(is_mel=True, is_log=True, is_cepstrum=False),
+    EfficientFeatureChannel(is_mel=True, is_log=True, is_cepstrum=True),
 ]
 e_source = EfficientFeatureSource(SAMPLE_RATE, e_channels)
 
 
 # Flexible Features
 f_channels = [
-    FeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=False, is_cepstrum=False),
-    FeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=True, is_cepstrum=False),
-    FeatureChannel(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=False),
-    FeatureChannel(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=True),
+    FlexibleFeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=False, is_cepstrum=False),
+    FlexibleFeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=True, is_cepstrum=False),
+    FlexibleFeatureChannel(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=False),
+    FlexibleFeatureChannel(SAMPLE_RATE, is_mel=True, is_logarithmic=True, is_cepstrum=True),
 ]
-f_source = FeatureSource(f_channels)
+f_source = FlexibleFeatureSource(f_channels)
 
 
 ###############################################################################

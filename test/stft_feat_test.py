@@ -12,9 +12,8 @@ import unittest
 ###############################################################################
 # Local Imports
 ###############################################################################
-from AudioMlSpecTools.flexible_features import FeatureChannel, FeatureSource
-from AudioMlSpecTools.stft_features import FullRangeStftFeatureSource
-from AudioMlSpecTools.wav import load_wav
+from AudioMlSpecTools import FlexibleFeatureChannel, FlexibleFeatureSource, FullRangeStftFeatureSource, load_wav
+
 
 ###############################################################################
 # Config
@@ -31,9 +30,9 @@ wav, _ = load_wav("test/res/380ACP-7-7WYYO4zK0hPS-9.wav")
 
 # Standard to compare
 channels = [
-    FeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=True, is_cepstrum=False, n_filters=513),
+    FlexibleFeatureChannel(SAMPLE_RATE, is_mel=False, is_logarithmic=True, is_cepstrum=False, n_filters=513),
 ]
-ref_source = FeatureSource(channels)
+ref_source = FlexibleFeatureSource(channels)
 
 # New code
 stft_source = FullRangeStftFeatureSource(SAMPLE_RATE)

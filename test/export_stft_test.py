@@ -4,8 +4,7 @@
 import torch
 import unittest
 
-from AudioMlSpecTools.flexible_features import ExportableSTFT
-from AudioMlSpecTools.wav import load_wav
+from AudioMlSpecTools import TypePreservingSTFT, load_wav
 
 
 ###############################################################################
@@ -51,7 +50,7 @@ REF_SPEC = _stft(AUDIO, N_FFT, HOP_LEN, HANN_WINDOW)
 ###############################################################################
 class TestStft(unittest.TestCase):
     def test_results(self):
-        my_stft = ExportableSTFT(N_FFT, hop_length=HOP_LEN)
+        my_stft = TypePreservingSTFT(N_FFT, hop_length=HOP_LEN)
         my_spec = my_stft.forward(AUDIO)
         is_close = torch.allclose(REF_SPEC, my_spec, atol=0.002)
         self.assertTrue(is_close)

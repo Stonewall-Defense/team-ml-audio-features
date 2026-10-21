@@ -2,7 +2,7 @@
 ###############################################################################
 import unittest
 
-from AudioMlSpecTools.wav import WavReader
+from AudioMlSpecTools import WavReader
 
 
 ###############################################################################

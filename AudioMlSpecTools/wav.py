@@ -65,6 +65,39 @@ def set_audio_length(wave: torch.Tensor, sr: int, duration_secs: Optional[float]
         return wave
 
 
+def load_raw_wav(filename: Path | str,
+                 *,
+                 sr: Optional[int] = None,
+                 start_sec: Optional[float] = None,
+                 end_sec: Optional[float] = None,
+                 mono=True,
+                 pad=False,
+                 ):
+    if sr is None:
+        _, sr = _metadata(filename)
+
+    if start_sec and start_sec < 0:
+        raise ValueError("start_sec must be at least zero")
+    elif end_sec and end_sec < 0:
+        raise ValueError("end_sec must be at least zero")
+    elif start_sec and end_sec and end_sec <= start_sec:
+        raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
+
+    start_samples = int(start_sec * sr) if start_sec else 0
+    end_samples = int(end_sec * sr) if end_sec else None
+    frames = (end_samples - start_samples) if end_samples is not None else -1
+    fill_value = 0 if pad else None
+
+    # ! NB: `frames` means "samples", NOT "frames"
+    audio_raw, file_sr = soundfile.read(filename, start=start_samples, frames=frames, fill_value=fill_value, always_2d=True)
+    audio = torch.from_numpy(audio_raw.astype(np.float32).T)
+
+    if mono:
+        audio = to_mono(audio)
+
+    return audio, file_sr
+
+
 def load_wav(path: Path | str,
              *,
              target_sr: Optional[int] = None,
@@ -85,7 +118,7 @@ def load_wav(path: Path | str,
         duration_secs -- Consistent duration of output audio, either by truncation or zero-padding as needed
     '''
 
-    audio, file_sr = _load(path, end_sec=duration_secs, mono=mono, pad=pad)
+    audio, file_sr = load_raw_wav(path, end_sec=duration_secs, mono=mono, pad=pad)
     wave = resample(audio, orig_freq=file_sr, new_freq=target_sr)
 
     final_sr = target_sr or file_sr
@@ -133,7 +166,7 @@ class WavReader:
         return self.read(filename, start_sec=start_sec, end_sec=end_sec)
 
     def read(self, filename: Path | str, *, start_sec: Optional[float] = None, end_sec: Optional[float] = None):
-        wave, file_sr = _load(filename, start_sec=start_sec, end_sec=end_sec, mono=self.mono, pad=self.pad)
+        wave, file_sr = load_raw_wav(filename, start_sec=start_sec, end_sec=end_sec, mono=self.mono, pad=self.pad)
 
         if self.expected_file_sr and self.expected_file_sr != file_sr:
             msg = f"File {filename} has sample rate {file_sr} but expected {self.expected_file_sr}"
@@ -162,39 +195,6 @@ def _metadata(filename: Path | str):
         raise ValueError(f"Could not get metadata for file: {filename}")
     else:
         return n_chan, sr
-
-
-def _load(filename: Path | str,
-          *,
-          sr: Optional[int] = None,
-          start_sec: Optional[float] = None,
-          end_sec: Optional[float] = None,
-          mono=True,
-          pad=False,
-          ):
-    if sr is None:
-        _, sr = _metadata(filename)
-
-    if start_sec and start_sec < 0:
-        raise ValueError("start_sec must be at least zero")
-    elif end_sec and end_sec < 0:
-        raise ValueError("end_sec must be at least zero")
-    elif start_sec and end_sec and end_sec <= start_sec:
-        raise ValueError("end_sec must be strictly higher than start_sec if both are provided")
-
-    start_samples = int(start_sec * sr) if start_sec else 0
-    end_samples = int(end_sec * sr) if end_sec else None
-    frames = (end_samples - start_samples) if end_samples is not None else -1
-    fill_value = 0 if pad else None
-
-    # ! NB: `frames` means "samples", NOT "frames"
-    audio_raw, file_sr = soundfile.read(filename, start=start_samples, frames=frames, fill_value=fill_value, always_2d=True)
-    audio = torch.from_numpy(audio_raw.astype(np.float32).T)
-
-    if mono:
-        audio = to_mono(audio)
-
-    return audio, file_sr
 
 
 ###############################################################################

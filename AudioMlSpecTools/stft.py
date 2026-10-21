@@ -1,7 +1,6 @@
 ###############################################################################
 # Global Imports
 ###############################################################################
-from enum import Enum
 from typing import Optional
 
 ###############################################################################
@@ -9,57 +8,16 @@ from typing import Optional
 ###############################################################################
 import torch
 
-
 ###############################################################################
-# Enumerated Types
+# Local Imports
 ###############################################################################
-class SpecType(Enum):
-    '''
-    Possible spectrum types for feature extraction.
-
-    The literature is conflicted on which, if any, provides the best results.
-    '''
-    STFT = "STFT"
-    LOG_STFT = "LOG_STFT"
-    LFCC = "LFCC"
-    MEL = "MEL"
-    LOG_MEL = "LOG_MEL"
-    MFCC = "MFCC"
-
-
-class WindowFunction(Enum):
-    HANN = "Hann"
-    HAMMING = "Hamming"
-    BLACKMAN = "Blackman"
-
-
-###############################################################################
-# New Functions
-###############################################################################
-def ideal_hop_length(window_type: WindowFunction, n_fft: int):
-    if window_type in [WindowFunction.HANN, WindowFunction.HAMMING]:
-        return n_fft // 4
-    elif window_type == WindowFunction.BLACKMAN:
-        return n_fft // 6
-    else:   # Should never happen; probably better than using a default
-        raise ValueError(window_type)
-
-
-def make_window(window_type: WindowFunction, n_fft: int):
-    if window_type == WindowFunction.HANN:
-        return torch.hann_window(n_fft)
-    elif window_type == WindowFunction.HAMMING:
-        return torch.hamming_window(n_fft)
-    elif window_type == WindowFunction.BLACKMAN:
-        return torch.blackman_window(n_fft)
-    else:   # Should never happen; probably better than using a default
-        raise ValueError(window_type)
+from .window import WindowFunction, make_window, ideal_hop_length
 
 
 ###############################################################################
 # New Classes
 ###############################################################################
-class ExportableSTFT(torch.nn.Module):
+class TypePreservingSTFT(torch.nn.Module):
     '''
         Exportable to Executorch. Created by Claude with supervision.
 
@@ -114,23 +72,3 @@ class ExportableSTFT(torch.nn.Module):
 
         # Match torch.stft output layout: (B, freq, frames)
         return power.permute(0, 2, 1)
-
-
-###############################################################################
-# New Functions
-###############################################################################
-def determine_spec_type(calc_mels: bool, calc_logs: bool, calc_cepstrum: bool):
-    if calc_mels:
-        if calc_cepstrum:
-            return SpecType.MFCC
-        elif calc_logs:
-            return SpecType.LOG_MEL
-        else:
-            return SpecType.MEL
-    else:
-        if calc_cepstrum:
-            return SpecType.LFCC
-        elif calc_logs:
-            return SpecType.LOG_STFT
-        else:
-            return SpecType.STFT

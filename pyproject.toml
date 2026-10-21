@@ -1,6 +1,6 @@
 [project]
 name = "AudioMlSpecTools"
-version = "v0.15.1"
+version = "v0.16.0"
 
 authors = [
   { name="Ryan Quinn", email="ryan.quinn@certusinnovations.com" },
@@ -20,7 +20,10 @@ license = "MIT"
 license-files = ["LICENSE*"]
 
 dependencies = [
+    "click ~= 8.4",
+    "matplotlib ~= 3.10",
     "numpy ~= 2.4",
+    "playsound3 ~= 3.3",
     "scikit-maad ~= 1.5",
     "scipy ~= 1.15",
     "soundfile ~= 0.13",
@@ -31,12 +34,13 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "coverage ~= 7.13",
-
-    "audio_tensor_plotter ~= 0.4",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Stonewall-Defense/team-ml-audio-features"
+
+[project.scripts]
+audiomltools = "AudioMlSpecTools._exec:cli"
 
 [build-system]
 requires = ["setuptools"]

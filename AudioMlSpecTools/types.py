@@ -2,13 +2,17 @@
 # Global Imports
 ###############################################################################
 from abc import ABC, abstractmethod
-import json
 from typing import Sequence
 
 ###############################################################################
 # 3PP Imports
 ###############################################################################
 import torch
+
+###############################################################################
+# Local Imports
+###############################################################################
+from .util import has_batch
 
 
 ###############################################################################
@@ -35,12 +39,12 @@ class AudioPostprocessor(torch.nn.Module, ABC):
         ...
 
     def forward(self, specs: torch.Tensor) -> torch.Tensor:
-        has_batch = len(specs.shape) == 4
-        chan_dim = 1 if has_batch else 0
+        input_has_batch = has_batch(specs)
+        chan_dim = 1 if input_has_batch else 0
         n_chans = specs.shape[chan_dim]
 
         for chan_idx in range(n_chans):
-            if has_batch:
+            if input_has_batch:
                 specs[:, chan_idx] = self._process(specs[:, chan_idx])
             else:
                 specs[chan_idx] = self._process(specs[:, chan_idx])
@@ -73,19 +77,3 @@ class BaseFeatureSource(torch.nn.Module, ABC):
             spec = postproc(spec)
 
         return spec
-
-
-###############################################################################
-# New Functions
-###############################################################################
-def load_params(params: str | list | dict):
-    if not isinstance(params, str):
-        return params
-    else:
-        with open(params, "r") as infile:
-            return json.loads(infile.read())
-
-
-def write_params(filename: str, params: list | dict):
-    with open(filename, "r") as outfile:
-        return outfile.write(json.dumps(params, indent=2))

@@ -22,7 +22,7 @@ class MelType(Enum):
     SLANEY = "Slaney"
 
 
-T = TypeVar("T", bound=torch.Tensor | float)
+T = TypeVar("T", torch.Tensor, float)
 
 
 ###############################################################################
@@ -129,8 +129,6 @@ def mel_to_hz(mels: T, mel_type: MelType) -> T:
 
         return freqs
 
-
-mel_to_hz(4.0, MelType.OSHAUGHNESSY)
 
 def create_triangular_filterbank(
     all_freqs: torch.Tensor,
