@@ -57,7 +57,7 @@ def cli():
 
 @cli.command("clip")
 @click.argument("filename", required=True)
-@click.argument("output_filename")
+@click.argument("output_filename", required=False)
 @click.option("--start_sec", "-s", type=int)
 @click.option("--end_sec", "-e", type=int)
 @click.option("--duration_sec", "-d", type=int)
@@ -88,7 +88,7 @@ def play(filename: str, loop: bool):
 
 @cli.command("resample")
 @click.argument("filename", required=True)
-@click.argument("output_filename")
+@click.argument("output_filename", required=False)
 @click.option("--target_sr", required=True, type=int)
 def resample(filename: str,
              output_filename: Optional[str],
